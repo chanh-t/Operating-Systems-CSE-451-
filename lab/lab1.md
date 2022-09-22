@@ -246,7 +246,7 @@ int main() {
   ...
 }
 ```
-Later on, you will uncomment the first 4 lines of code and remove the `while(1)` statement so the
+Later on, you will uncomment the beginning lines of code and remove the `while(1)` statement so that
 lab1 test cases can run.
 
 ## Part 4: System calls
@@ -270,16 +270,17 @@ will run. The handler will reach the `trap` function in `kernel/trap.c` and the 
 Your task is to implement the listed system calls (listed below). You will need a simple understanding of the file system used in xk.
 
 #### File, file descriptor and inode
-The kernel needs to keep track of the open files so that it can read, write, and eventually close the
-files. A file descriptor is an integer that represents this open file. Somewhere in the kernel you
-will need to keep track of these open files. Remember that file descriptors must be reusable between
-processes. File descriptor 4 for one process is different from file descriptor 4 for another
+The kernel needs to keep track of the open files in order to service read, write requests to these files and eventually close them.
+A file descriptor is an integer used by a process to identify an open file. Kernel returns a file descriptor to the process upon an open system call.
+File descriptors must be reusable between processes. File descriptor 4 for one process is different from file descriptor 4 for another
 (although they could reference the same open file).
 
-Traditionally the file descriptor is an index into an array of open files.
+Traditionally the file descriptor is an index into an array of open files of a process.
 
 The console is simply a file (file descriptor) from the user application's point of view. Reading
 from keyboard and writing to screen is done through the kernel file system call interface.
+
+Inode is a layer below file, it is used by many file systems (including xk's) to implement objects like files and directories. 
 
 ### Question #5
 What is the first line of c code executed in the kernel when there is an interrupt? To force an interrupt, perform a system call. Add a `sleep` call within `lab1test.c` and use gdb to trace through it with the `si` command.
@@ -302,7 +303,7 @@ the backtrace when it reaches `sys_sleep`?
 - If a new file descriptor is allocated, it must be saved in the process's file descriptor tables. Similarly, if a file descriptor is released, this must be reflected in the file descriptor table.
 - A full file descriptor table is a user error (return an error value instead of calling `panic`).
 - A simple inode layer is already implemented. You can use readi/writei to read/write from an inode. You can use namei to find and load an inode. When no process is using an inode, inode should be released by irelease. stati can be used to stat an inode.
-- For this lab, the TA solution makes changes to `sys_file.c`, `file.c`, `proc.h`, `defs.h` and `file.h`. You may change more or fewer files.
+- For this lab, the TA solution makes changes to `sysfile.c`, `file.c`, `proc.h`, `defs.h` and `file.h`. You may change more or fewer files.
 
 #### What To Implement
 1) File Descriptor Opening
@@ -324,8 +325,9 @@ the backtrace when it reaches `sys_sleep`?
  * arg0 points to an invalid or unmapped address 
  * there is an invalid address before the end of the string 
  * the file does not exist
- * since the file system is read only, flag O_CREATE is not permitted
- * there is no available file descriptor
+ * there is no available file descriptor 
+ * since the file system is read only, any write flags for non console files are invalid
+ * O_CREATE is not permitted (for now)
  *
  * note that for lab1, the file system does not support file create
  */
@@ -340,23 +342,20 @@ sys_open(void);
  * arg1: char * [buffer to write read bytes to]
  * arg2: int [number of bytes to read]
  *
- * reads up to arg2 bytes from the current position of the file descriptor 
- * arg0 and places those bytes into arg1. The current position of the
- * file descriptor is updated by that number of bytes.
+ * Read up to arg2 bytes from the current position of the corresponding file of the 
+ * arg0 file descriptor, place those bytes into the arg1 buffer.
+ * The current position of the open file is then updated with the number of bytes read.
  *
- * returns number of bytes read, or -1 if there was an error.
+ * Return the number of bytes read, or -1 if there was an error.
  *
- * If there are insufficient available bytes to complete the request,
- * reads as many as possible before returning with that number of bytes. 
- *
- * Fewer than arg2 bytes can be read in various conditions:
+ * Fewer than arg2 bytes might be read due to these conditions:
  * If the current position + arg2 is beyond the end of the file.
  * If this is a pipe or console device and fewer than arg2 bytes are available 
  * If this is a pipe and the other end of the pipe has been closed.
  *
  * Error conditions:
  * arg0 is not a file descriptor open for read 
- * some address between [arg1,arg1+arg2-1] is invalid
+ * some address between [arg1, arg1+arg2) is invalid
  * arg2 is not positive
  */
 int
@@ -370,18 +369,16 @@ sys_read(void);
  * arg1: char * [buffer of bytes to write to the given fd]
  * arg2: int [number of bytes to write]
  *
- * writes up to arg2 bytes from arg1 to the current position of 
- * the file descriptor. The current position of the file descriptor 
- * is updated by that number of bytes.
+ * Write up to arg2 bytes from arg1 to the current position of the corresponding file of
+ * the file descriptor. The current position of the file is updated by the number of bytes written.
  *
- * returns number of bytes written, or -1 if there was an error.
+ * Return the number of bytes written, or -1 if there was an error.
  *
- * If the full write cannot be completed, writes as many as possible 
- * before returning with that number of bytes. For example, if the disk 
- * runs out of space.
+ * If the full write cannot be completed, write as many as possible 
+ * before returning with that number of bytes.
  *
  * If writing to a pipe and the other end of the pipe is closed,
- * will return -1.
+ * return -1.
  *
  * Error conditions:
  * arg0 is not a file descriptor open for write
@@ -402,8 +399,8 @@ sys_write(void);
 /*
  * arg0: int [file descriptor]
  *
- * closes the passed in file descriptor
- * returns 0 on successful close, -1 otherwise
+ * Close the given file descriptor
+ * Return 0 on successful close, -1 otherwise
  *
  * Error conditions:
  * arg0 is not an open file descriptor
@@ -417,8 +414,8 @@ sys_close(void);
 /*
  * arg0: int [file descriptor]
  *
- * duplicate the file descriptor arg0, must use the smallest unused file descriptor
- * returns a new file descriptor of the duplicated file, -1 otherwise
+ * Duplicate the file descriptor arg0, must use the smallest unused file descriptor.
+ * Return a new file descriptor of the duplicated file, -1 otherwise
  *
  * dup is generally used by the shell to configure stdin/stdout between
  * two programs connected by a pipe (lab 2).  For example, "ls | more"
@@ -443,9 +440,10 @@ sys_dup(void);
  * arg0: int [file descriptor]
  * arg1: struct stat *
  *
- * populates the struct stat pointer passed in to the function
+ * Populate the struct stat pointer passed in to the function
  *
- * returns 0 on success, -1 otherwise
+ * Return 0 on success, -1 otherwise
+ *
  * Error conditions: 
  * if arg0 is not a valid file descriptor
  * if any address within the range [arg1, arg1+sizeof(struct stat)] is invalid
@@ -455,8 +453,8 @@ sys_fstat(void);
 ```
 
 ## Testing
-After you implement the system calls described above, run `make qemu` and type `lab1test` into the shell. 
-You should see `lab1 tests passed!` if all tests pass.
+After you implement the system calls described above, uncomment the beginning lines of lab1test.c and remove the while(1) loop.
+Then run `make qemu`, and you should see `lab1 tests passed!`.
 
 ### Question #8
 For each member of the project team, how many hours did you

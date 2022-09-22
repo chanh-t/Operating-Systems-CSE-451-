@@ -119,12 +119,12 @@ int argptr(int n, char **pp, int size) {
 }
 
 // Fetch the nth word-sized system call argument as a string pointer.
-// Check that the pointer is valid and the string is nul-terminated.
+// Check that the pointer is valid and the string is null-terminated.
 // (There is no shared writable memory, so the string can't change
 // between this check and being used by the kernel.)
 int argstr(int n, char **pp) {
-  int addr;
-  if (argint(n, &addr) < 0)
+  int64_t addr;
+  if (argint64(n, &addr) < 0)
     return -1;
   return fetchstr(addr, pp);
 }

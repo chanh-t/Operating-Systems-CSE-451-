@@ -20,6 +20,11 @@ XK_UPROGS := \
 	$(O)/user/_sysinfo \
 	$(O)/user/_lab1test \
 
+
+XK_TEXT_FILES := \
+	$(O)/user/small.txt \
+    $(O)/user/l2_share.txt \
+
 XK_UPROGS_OBJS := $(addsuffix .o,$(XK_UPROGS))
 
 XK_UPROGS_ASMS := $(addsuffix .asm,$(XK_UPROGS))
