@@ -306,6 +306,17 @@ the backtrace when it reaches `sys_sleep`?
 - For this lab, the TA solution makes changes to `sysfile.c`, `file.c`, `proc.h`, `defs.h` and `file.h`. You may change more or fewer files.
 
 #### What To Implement
+0) File Representation
+To implement the following filesys system calls, kernel needs to have a structure that represents an open file.
+The file structure needs to track the following info:
+- the underlying inode (so we can ask the filesys to perform corresponding actions)
+- current offset of the file (how far have we read) 
+- access mode of the open file (identifies the file as readable, writable and so on)
+- reference count of the struct (hint: dup)
+
+Once the structure is designed, you also need to manage allocation and deallocation of it. 
+Take a look at `inc/param.h` for the max number of open files per system and per process that you need to support.
+
 1) File Descriptor Opening
 ```c
 /*
@@ -459,6 +470,9 @@ Then run `make qemu`, and you should see `lab1 tests passed!`.
 ### Question #8
 For each member of the project team, how many hours did you
 spend on this lab?
+
+### Question #9
+What did you like or dislike about this lab? Is there anything you wish you knew earlier?
 
 ## Handin
 
