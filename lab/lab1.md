@@ -306,7 +306,7 @@ the backtrace when it reaches `sys_sleep`?
 - For this lab, the TA solution makes changes to `sysfile.c`, `file.c`, `proc.h`, `defs.h` and `file.h`. You may change more or fewer files.
 
 #### What To Implement
-0) File Representation
+0) File Representation\
 To implement the following filesys system calls, kernel needs to have a structure that represents an open file.
 The file structure needs to track the following info:
 - the underlying inode (so we can ask the filesys to perform corresponding actions)
