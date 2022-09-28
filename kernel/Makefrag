@@ -63,7 +63,7 @@ XK_KERNEL_SRCS := \
 
 XK_KERNEL_OBJS	:= $(addprefix $(O)/,$(patsubst %.c,%.o,$(patsubst %.S,%.o,$(XK_KERNEL_SRCS))))
 
-LDFLAGS_KERNEL   := -m elf_x86_64 -nodefaultlibs --oformat elf64-x86-64
+LDFLAGS_KERNEL   := -m elf_x86_64 --oformat elf64-x86-64
 
 GDBPORT	:= $(shell expr `id -u` % 5000 + 25000)
 QEMUGDB := -gdb tcp::$(GDBPORT)
