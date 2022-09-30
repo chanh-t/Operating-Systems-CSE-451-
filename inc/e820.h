@@ -27,8 +27,8 @@ struct e820_map {
 
 extern struct e820_map e820_map;
 
-uint32_t mmap_addr;
-uint32_t mmap_length;
+extern uint32_t mmap_addr;
+extern uint32_t mmap_length;
 
 void e820_init(physaddr_t mbi_pa);
 void e820_print();

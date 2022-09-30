@@ -3,6 +3,8 @@
 #include <multiboot.h>
 
 struct e820_map e820_map;
+uint32_t mmap_addr;
+uint32_t mmap_length;
 
 static const char *e820_map_types[] = {
     "available", "reserved", "ACPI reclaimable", "ACPI NVS", "unusable",
