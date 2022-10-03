@@ -113,7 +113,7 @@ x86_64 uses a page table to translate virtual memory address to physical memory 
 
 Address translation happens in 4 steps. A page table is stored in physical memory as a 4-level tree. The root of the page table is written in register CR3. To translate a virtual address to a physical address, paging hardware of x86_64 walks the 4-level tree to find the correct physical address. Software implementation of the page walk is `walkpml4` in `kernel/x86_64vm.c`. `walkpml4` is a utility function to help xk manage the page table.
 
-<img src="resource/Addr_Translation.png" width="500"/>
+<img src="Addr_Translation.png" width="500"/>
 
 Each PTE contains flag bits that tell the paging hardware how the associated virtual address is allowed to be used. PTE_P indicates whether the PTE is present. PTE_W controls whether instructions are allowed to issue writes to the page. PTE_U controls whether user programs are allowed to use the page. Those flags are defined in `inc/mmu.h`.
 
