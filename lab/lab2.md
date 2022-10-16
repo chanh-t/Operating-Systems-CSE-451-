@@ -118,7 +118,7 @@ process scheduler. A hardware device generates a timer interrupt on
 fixed intervals. If another process is RUNNABLE, the scheduler will switch
 to it, essentially causing the current process to yield the CPU.
 
-`vspaceinit`, `vspacecopy` and `vspaceinstall` might be useful.
+`vspaceinit` and `vspacecopy` might be useful.
 
 ### Question #1
 
