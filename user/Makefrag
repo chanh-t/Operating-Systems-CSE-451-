@@ -19,7 +19,7 @@ XK_UPROGS := \
 	$(O)/user/_zombie \
 	$(O)/user/_sysinfo \
 	$(O)/user/_lab1test \
-
+	$(O)/user/_lab2test \
 
 XK_TEXT_FILES := \
 	$(O)/user/small.txt \
