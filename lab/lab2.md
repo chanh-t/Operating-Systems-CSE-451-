@@ -442,14 +442,8 @@ zombie         2 14 11648
 sysinfo        2 15 12216
 lab1test       2 16 22192
 lab2test       2 17 23256
-lab3test       2 18 19352
-lab3init       2 19 11992
-lab4test       2 20 13936
-lab5test_a     2 21 18160
-lab5test_b     2 22 18024
-lab5test_c     2 23 15408
-small.txt      2 24 26
-l2_share.txt   2 25 20
+small.txt      2 18 26
+l2_share.txt   2 19 20
 exectest: test argument
 exectest: test output
 echotest ok
