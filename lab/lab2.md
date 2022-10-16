@@ -422,32 +422,33 @@ extendedpipetest
 extendedpipetest: ok
 childpidtest
 childpidtest: ok
-childpidtest
+exectest
 exectest: testing ls
-.              1 1 416
-..             1 1 416
+.              1 1 320
+..             1 1 320
 console        3 2 0
-sh             2 3 19856
-init           2 4 12216
-cat            2 5 12416
-echo           2 6 11880
-grep           2 7 13672
-kill           2 8 11888
-ln             2 9 11888
-ls             2 10 13632
-rm             2 11 11944
-stressfs       2 12 12320
-wc             2 13 12720
-zombie         2 14 11648
-sysinfo        2 15 12216
-lab1test       2 16 22192
-lab2test       2 17 23256
+sh             2 3 22248
+init           2 4 13808
+cat            2 5 13992
+echo           2 6 13288
+grep           2 7 15480
+kill           2 8 13376
+ln             2 9 13344
+ls             2 10 15352
+rm             2 11 13400
+stressfs       2 12 14000
+wc             2 13 14352
+zombie         2 14 13080
+sysinfo        2 15 13648
+lab1test       2 16 24352
+lab2test       2 17 25792
 small.txt      2 18 26
 l2_share.txt   2 19 20
 exectest: test argument
 exectest: test output
 echotest ok
 exectest: ok
+preempt: kill... wait... pkilltest: ok
 lab2 tests passed!!
 ```
 
