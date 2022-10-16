@@ -38,6 +38,12 @@ git pull upstream main
 ```
 and merge.
 
+If your repo doesn't have the class repo as upstream, make sure to add it via
+```
+git remote add upstream git@gitlab.cs.washington.edu:xk-public/22au.git
+```
+and then pull and merge.
+
 ### Exercise
 After the merge, switch all function calls to inodes with thread safe 
 versions. For example, switch `writei` to `concurrent_writei`.
@@ -226,6 +232,9 @@ no more room in the internal buffer. Pipes are a simple way to support interproc
 communication, especially between processes started by the shell, with the system
 calls you just implemented. 
 
+After you implement pipe, you need to revisit your file functions to make sure 
+`read` `write` `close` `dup` can be performed on pipes.
+
 ### Exercise
 Add support for pipes. In terms of implementation, pipes can use a bounded buffer 
 described in Chapter 5; the pipe does
@@ -333,9 +342,14 @@ This means the first argument, `argc`, is the length of `argv`, where `argv` is 
 to a list of strings. In the previous example, this means you have to copy `cat`, `a.txt`
 and `b.txt` to the user stack. Create an array on the user stack whose 0th index points
 to `cat`, 1st index points to `a.txt`, 2nd index points to `b.txt` and 
-3rd index element is the 0 pointer `\0`. Set the `%rdi` register (first argument in x86\_64 
+3rd index element is the 0 pointer `\0`. 
+
+Once you've set up the stack, remember to Set the `%rdi` register (first argument in x86\_64 
 calling convention) to be 3 (length of argv) and the `%rsi` register (second argument in
-x86\_64 calling convention) to the `argv` array you created on the stack.
+x86\_64 calling convention) to the `argv` array you created on the stack. 
+You also need to update other fields in the trapframe to ensure that the process returns to
+user mode with its new entry point and uses the new stack. 
+It might be helpful to take a look at how `userinit` sets up the trapframe.
 
 ### Exercise
 Implement `exec`.
