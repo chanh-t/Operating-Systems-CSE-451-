@@ -1,5 +1,5 @@
 # Lab 2: Multiprocessing
-## Design Due 10/24/2022 (Monday) at 11:59pm. No late days.
+## Design Due 10/25/2022 (Tuesday) at 11:59pm. No late days.
 ## Lab Due 11/02/2022 (Wednesday) at 11:59pm.
 
 ## Introduction
