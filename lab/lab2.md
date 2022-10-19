@@ -95,7 +95,7 @@ and sleeplocks.
 
 ### Exercise
 Fix your lab 1 code to be safe for multiple processes.  In particular,
-you will need to use a lock to protect access to the shared file descriptor
+you will need to use a lock to protect access to the shared open file
 table. In your final turn-in, please document and justify your locking scheme in
 the design document. Specify what types of locks you use and what scenarios
 they protect against.
