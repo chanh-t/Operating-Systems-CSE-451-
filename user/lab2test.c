@@ -310,20 +310,21 @@ void fdesctest(void) {
   close(fd1);
 
   // Make sure the correct file descriptor ints are maintained
+  
+  int fd2, fd3, fd4, fd5;
+  assert((fd2 = open("l2_share.txt", O_RDONLY)) > -1);
+  assert((fd3 = open("l2_share.txt", O_RDONLY)) > -1);
+  assert((fd4 = open("l2_share.txt", O_RDONLY)) > -1);
+  assert((fd5 = open("l2_share.txt", O_RDONLY)) > -1);
 
-  assert(open("l2_share.txt", O_RDONLY) > -1);
-  assert(open("l2_share.txt", O_RDONLY) > -1);
-  assert(open("l2_share.txt", O_RDONLY) > -1);
-  assert(open("l2_share.txt", O_RDONLY) > -1);
-
-  assert(close(4) != -1);
-  assert(close(5) != -1);
+  assert(close(fd3) != -1);
+  assert(close(fd4) != -1);
 
   if (!fork()) {
-    assert(read(3, buf, 10) == 10);
-    assert(read(4, buf, 10) == -1); // this fd shouldn't be open
-    assert(read(5, buf, 10) == -1); // this fd shouldn't be open
-    assert(read(6, buf, 10) == 10);
+    assert(read(fd2, buf, 10) == 10);
+    assert(read(fd3, buf, 10) == -1); // this fd shouldn't be open
+    assert(read(fd4, buf, 10) == -1); // this fd shouldn't be open
+    assert(read(fd5, buf, 10) == 10);
     exit();
   } else {
     wait();

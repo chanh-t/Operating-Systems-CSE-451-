@@ -1,5 +1,5 @@
 # Lab 3: Address Space Management
-## Design Doc Due: 11/09/22 (Wednesday) at 11:59pm.
+## Design Doc Due: 11/10/22 (Thursday) at 11:59pm. No late days.
 ## Complete Lab Due: 11/18/22 (Friday) at 11:59pm.
 
 To get lab3 handout and tests, run the command
@@ -92,9 +92,9 @@ behalf of the user. Remember, xk allocates and frees memory at page granularity
 byte granularity. The OS does this to be portable, since an application cannot depend
 on the machine adopting a specific page size.
 
-After the kernel allocates memory on behalf of the user, the kernel has to
-map that memory into the user's address space (using `vregionaddmap` in `kernel/vspace.c`)
-in the heap memory region.
+The kernel is responsible for allocating physical memory for the newly grown heap and updating its 
+bookkeeping structure for user memory (both can be achieved through `vregionaddmap` in `kernel/vspace.c`).
+It also needs to update the actual page table entries to reflect the newly added mappings (through `vspaceinvalidate` in `kernel/vspace.c`).
 
 In user space, we have provided an implementation of `malloc` and `free` (in `user/umalloc.c`) that is going to use `sbrk`. After the implementation of `sbrk` is
 done, user-level applications should be able to call `malloc` and `free`.
@@ -305,7 +305,7 @@ functional correctness -- that the number of allocated pages is
 small and that the child processes execute as if they received a
 complete copy of the parent's memory.
 
-<img src="resource/cow_flag.jpg" width="500"/>
+<img src="cow_flag.jpg" width="500"/>
 
 ### Question #6:
 The TLB caches the page table entries of recently referenced
