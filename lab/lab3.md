@@ -281,13 +281,18 @@ However, the page tables of both processes will need to
 be changed to be read-only.  That way, if either process tries
 to alter the content of their memory, a trap to the kernel will occur,
 and the kernel can make a copy of the memory page at that point,
-before resuming the user code.
+before resuming the user code. As a start, it will be helpful to understand
+how `vspacecopy` works, and then implement your own `vspacecowcopy`.
 
-Note that synchronization will be needed, as both the child and the parent
-could concurrently attempt to write to the same page.
+Once you enable copy-on-write sharing, multiple processes may now map to the
+same set of frames in the physical memory. You will need to track how many pages 
+are mapped onto each frame in order to know when a frame can be actually freed. 
+You will also want to make sure that your updates to the reference count is protected.
+You can allocate a frame via `kalloc`, and each frame has an associated `core_map_entry` that
+you can use to store information. You can modify `kalloc` and `kfree` to work with your newly added field.
 
 For every page in a process's page table (vspace), there is a structure that
-represents that entry (`struct vpage_info`). You can feel free to add fields,
+represents that entry (`struct vpage_info`). Feel free to add fields,
 potentially to indicate this virtual page is a copy-on-write page. On a page
 fault, you can use the vspace functions (`va2vregion` and `va2vpage_info`) to
 get the `vpage_info` and understand what caused the fault.
@@ -295,6 +300,8 @@ get the `vpage_info` and understand what caused the fault.
 On a page fault you can see if the virtual address is a copy-on-write address.
 From here you can allocate a page, copy the data from the copy-on-write page,
 and let the faulting process start writing to that freshly-allocated page.
+Note that whenever you are changing the translation or changing the permission of 
+a page, you need to flush the TLB to make sure you don't use the cached stale translations (see Q6).
 
 A tricky part of the assignment is that, of course, a child process
 with a set of copy-on-write pages can fork another child.
@@ -306,6 +313,25 @@ small and that the child processes execute as if they received a
 complete copy of the parent's memory.
 
 <img src="cow_flag.jpg" width="500"/>
+
+### Tips
+You will see a lot of addresses and bookkeeping structures in this lab:
+- user virtual address: this is a virtual address within a process's virtual address space, it will be between [0, SZ_2G)
+- vpage_info: each page in a process's virtual address space has a corresponding `vpage_info` struct, you can use it to track page specific info. 
+To get the `vpage_info`, you need to first find the `vregion` of the page (`va2vregion`), and then you can use `va2vpage_info`.
+- kernel virtual address: this is a virtual address within the kernel's virtual address sapce, it will be above KERNBASE. The kernel code, data, and 
+  heap all use kernel virtual addresses (print out the address of any kernel code/data to see it for yourself!). When you call `kalloc`, a kernel 
+  virtual address is returned upon success, the returned address is guaranteed to be backed by a physical frame. You can use this to allocate dynamic data in the kernel (kstack, pipe),
+  or you can hand this to a user process by mapping a process's page to this frame. For addresses returned by `kalloc`, you can call `V2P` to get the physical address backing this page.
+- core_map_entry: this is a bookkeeping structure for each physical frame. To retrieve this, you can call `pa2page` with the physical address.
+- `P2V`: get a kernel virtual address from a physical address
+- `V2P`: get a physical address from a kernel virtual address
+- To get physical address, leftshift ppn of a vpage_info by `PT_SHIFT` (ex. vpage_info->ppn << PT_SHIFT)
+- To get ppn from a core_map_entry, you can use `PGNUM(page2pa(page))` or `page - core_map`.
+<b>The virtual address the core_map_entry stores does not have a 1 to 1 relationship with ppn's, and should not be used to get the ppn </b>.
+- Some functions require physical address, some virtual. Be careful about this detail
+- Be careful when checking for reference counts in `kfree`. On boot, the system calls `kfree` on each page BEFORE ever calling `kalloc`. This means it's possible for reference counts to be 0 in kfree. 
+
 
 ### Question #6:
 The TLB caches the page table entries of recently referenced
@@ -326,16 +352,6 @@ Running the tests from the _previous_ labs is a good way to boost your confidenc
 in your solution for _this_ lab. If you want to run the lab1/lab2 tests,
 comment out the lines that call `open` and `dup` on the console,
 since `init` now does this before running the tests. 
-
-## Tips
-- To get ppn from a core_map_entry, you can use `PGNUM(page2pa(page))` or `page - core_map`.
-<b>The virtual address the core_map_entry stores does not have a 1 to 1 relationship with ppn's, and should not be used to get the ppn </b>.
-- `P2V`: get virtual address from physical
-- `V2P`: get physical address from virtual
-- To get physical address, leftshift ppn of a vpage_info by `PT_SHIFT` (ex. vpage_info->ppn << PT_SHIFT)
-- Some functions require physical address, some virtual. Be careful about this detail
-- Be careful when checking for reference counts in `kfree`. On boot, the system calls `kfree` on each page BEFORE ever calling `kalloc`. This means it's possible for reference counts to be 0 in kfree. 
-
 
 ### Question #7
 For each member of the project team, how many hours did you
