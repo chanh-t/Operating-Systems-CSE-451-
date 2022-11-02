@@ -357,6 +357,9 @@ since `init` now does this before running the tests.
 For each member of the project team, how many hours did you
 spend on this lab?
 
+### Question #8
+What did you like or dislike about this lab? Is there anything you wish you knew earlier?
+
 Create a file `lab3.txt` in the top-level xk directory with
 your answers to the questions listed above.
 
