@@ -22,10 +22,14 @@ XK_UPROGS := \
 	$(O)/user/_lab2test \
 	$(O)/user/_lab3test \
 	$(O)/user/_lab3init \
+	$(O)/user/_lab4test_a \
+	$(O)/user/_lab4test_b \
+	$(O)/user/_lab4test_c \
 
-XK_TEXT_FILES := \
-	$(O)/user/small.txt \
-    $(O)/user/l2_share.txt \
+
+# XK_TEXT_FILES := \
+# 	$(O)/user/small.txt \
+# 	$(O)/user/l2_share.txt \
 
 XK_UPROGS_OBJS := $(addsuffix .o,$(XK_UPROGS))
 
