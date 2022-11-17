@@ -34,6 +34,84 @@ void readsb(int dev, struct superblock *sb) {
   brelse(bp);
 }
 
+// Zero a block.
+static void bzero(int dev, int blkno)
+{
+  struct buf *bp = bread(dev, blkno);
+  memset(bp->data, 0, BSIZE);
+  bp->flags |= B_DIRTY; // mark our update
+  brelse(bp);
+}
+
+// mark [start, end] bit in bp->data to 1 if used is true, else 0
+static void bmark(struct buf *bp, uint start, uint end, bool used)
+{
+  int m, bi;
+  for (bi = start; bi <= end; bi++) {
+    m = 1 << (bi % 8);
+    if (used) {
+      bp->data[bi/8] |= m;  // Mark block in use.
+    } else {
+      if((bp->data[bi/8] & m) == 0)
+        panic("freeing free block");
+      bp->data[bi/8] &= ~m; // Mark block as free.
+    }
+  }
+  bp->flags |= B_DIRTY; // mark our update
+}
+
+// Blocks.
+
+// Allocate n zeroed disk blocks
+// Returns the beginning block number of a consecutive chunk of n blocks
+static uint balloc(uint dev, uint n)
+{
+  int b, bi, m;
+  struct buf *bp;
+
+  bp = 0;
+  for (b = 0; b < sb.size; b += BPB) {
+    bp = bread(dev, BBLOCK(b, sb)); // look through each bitmap sector
+
+    uint sz = 0;
+    uint i = 0;
+    for (bi = 0; bi < BPB && b + bi < sb.size; bi++) {
+      m = 1 << (bi % 8);
+      if ((bp->data[bi/8] & m) == 0) {  // Is block free?
+        sz++;
+        if (sz == 1) // reset starting blk
+          i = bi;
+        if (sz == n) { // found n blks
+          bmark(bp, i, bi, true); // mark data block as used
+          brelse(bp);
+          for (uint j=i; j<=bi; j++) {
+            bzero(dev, b+j); // zero out data blocks that will be handed out
+          }
+          return b+i;
+        }
+      } else { // reset search
+        sz = 0;
+        i =0;
+      }
+    }
+    brelse(bp);
+  }
+  panic("balloc: can't allocate contiguous blocks");
+}
+
+// Free n disk blocks starting from b
+static void bfree(int dev, uint b, uint n)
+{
+  struct buf *bp;
+
+  assertm(n >= 1, "freeing less than 1 block");
+  assertm(BBLOCK(b, sb) == BBLOCK(b+n-1, sb), "returned blocks live in different bitmap sectors");
+
+  bp = bread(dev, BBLOCK(b, sb));
+  bmark(bp, b % BPB, (b+n-1) % BPB, false);
+  brelse(bp);
+}
+
 // Inodes.
 //
 // An inode describes a single unnamed file.
