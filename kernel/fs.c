@@ -39,7 +39,6 @@ static void bzero(int dev, int blkno)
 {
   struct buf *bp = bread(dev, blkno);
   memset(bp->data, 0, BSIZE);
-  bp->flags |= B_DIRTY; // mark our update
   brelse(bp);
 }
 
