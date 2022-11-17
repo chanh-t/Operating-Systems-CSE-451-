@@ -34,14 +34,6 @@ void readsb(int dev, struct superblock *sb) {
   brelse(bp);
 }
 
-// Zero a block.
-static void bzero(int dev, int blkno)
-{
-  struct buf *bp = bread(dev, blkno);
-  memset(bp->data, 0, BSIZE);
-  brelse(bp);
-}
-
 // mark [start, end] bit in bp->data to 1 if used is true, else 0
 static void bmark(struct buf *bp, uint start, uint end, bool used)
 {
@@ -61,7 +53,7 @@ static void bmark(struct buf *bp, uint start, uint end, bool used)
 
 // Blocks.
 
-// Allocate n zeroed disk blocks
+// Allocate n disk blocks, no promise on content of allocated disk blocks
 // Returns the beginning block number of a consecutive chunk of n blocks
 static uint balloc(uint dev, uint n)
 {
@@ -83,9 +75,6 @@ static uint balloc(uint dev, uint n)
         if (sz == n) { // found n blks
           bmark(bp, i, bi, true); // mark data block as used
           brelse(bp);
-          for (uint j=i; j<=bi; j++) {
-            bzero(dev, b+j); // zero out data blocks that will be handed out
-          }
           return b+i;
         }
       } else { // reset search
