@@ -337,8 +337,7 @@ block. For example, if you want to prevent buffer `b` from eviction you can set
 the flags to be dirty by `b->flags |= B_DIRTY`. Once this is done, it will
 remain in the cache until the flags are updated to not be dirty (Like, say at
 the end of `commit_tx()`)?
-+Or extend the same inode file? Or try to create new files at the same time?... 
-+Use `locki(ip)` and `unlocki(ip)` when appropriate.
+Use `locki(ip)` and `unlocki(ip)` when appropriate.
 
 Testing for crash-safety is a bit complex. In your file system, there is a test
 file called `user/lab4test_c.c`. The test code calls a helper system call
