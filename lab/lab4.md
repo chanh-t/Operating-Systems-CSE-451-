@@ -350,7 +350,7 @@ If your file-delete implementation is not crash-safe, describe how you could
 implement a crash-safe delete even if the file spans multiple blocks
 
 ### Exercise
-Build a crash-safe file system. Run `python2 crash_safety_test.py`. It should
+Build a crash-safe file system. Run `python crash_safety_test.py`. It should
 print out `file system is crash-safe`.
 
 Expected output:
