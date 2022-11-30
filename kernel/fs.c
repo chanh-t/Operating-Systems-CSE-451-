@@ -110,7 +110,7 @@ static void bfree(int dev, uint b, uint n)
 // The inodes themselves are contained in a file known as the
 // inodefile. This allows the number of inodes to grow dynamically
 // appending to the end of the inode file. The inodefile has an
-// inum of 1 and starts at sb.startinode.
+// inum of 0 and starts at sb.startinode.
 //
 // The kernel keeps a cache of in-use inodes in memory
 // to provide a place for synchronizing access
