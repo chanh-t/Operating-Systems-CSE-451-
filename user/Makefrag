@@ -2,6 +2,7 @@ ULIB = \
 	$(O)/user/printf.o \
 	$(O)/user/ulib.o \
 	$(O)/user/usys.o \
+	$(O)/user/preface.o \
 	$(O)/user/umalloc.o \
 
 XK_UPROGS := \
@@ -36,7 +37,7 @@ XK_UPROGS_OBJS := $(addsuffix .o,$(XK_UPROGS))
 XK_UPROGS_ASMS := $(addsuffix .asm,$(XK_UPROGS))
 
 $(O)/user/_%: $(O)/user/%.o $(ULIB)
-	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $@ $^
+	$(LD) $(LDFLAGS) -N -e preface -Ttext 0 -o $@ $^
 	$(OBJDUMP) -S $@ > $@.asm
 
 $(O)/user/%.txt:

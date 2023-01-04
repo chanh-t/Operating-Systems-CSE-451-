@@ -52,8 +52,6 @@ int main() {
   nofilestest();
 
   printf(stdout, "lab1 tests passed!\n");
-
-  exit();
   return 0;
 }
 

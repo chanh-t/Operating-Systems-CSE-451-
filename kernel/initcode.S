@@ -3,4 +3,4 @@
 
 .globl start
 start:
-  call main
+  call preface

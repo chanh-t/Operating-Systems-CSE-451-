@@ -3,3 +3,6 @@ out/
 
 # Don't checkin turn in binary
 xkturnin.tar.gz
+
+.idea
+.gdbinit*
