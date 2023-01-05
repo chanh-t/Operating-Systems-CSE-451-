@@ -1,6 +1,6 @@
 # Lab 4: Filesystem
-## Design Doc Due: 11/23/22 (Wednesday) at 11:59pm.
-## Complete Lab Due: 12/9/22 (Friday) at 11:59pm.
+## Design Doc Due: 02/27/2023 (Monday) at 11:59pm.
+## Complete Lab Due: 03/10/2023 (Friday) at 11:59pm.
 
 To get lab4 handout and tests, run the command
 

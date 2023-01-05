@@ -1,6 +1,6 @@
 # Lab 2: Multiprocessing
-## Design Due 10/25/2022 (Tuesday) at 11:59pm. No late days.
-## Lab Due 11/02/2022 (Wednesday) at 11:59pm.
+## Design Due 01/23/2023 (Monday) at 11:59pm. No late days.
+## Lab Due 02/03/2023 (Friday) at 11:59pm.
 
 ## Introduction
 This lab adds multiprocessing to xk. As a first step,
@@ -40,7 +40,7 @@ and merge.
 
 If your repo doesn't have the class repo as upstream, make sure to add it via
 ```
-git remote add upstream git@gitlab.cs.washington.edu:xk-public/22au.git
+git remote add upstream git@gitlab.cs.washington.edu:xk-public/23wi.git
 ```
 and then pull and merge.
 
