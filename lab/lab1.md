@@ -1,5 +1,5 @@
 # Lab 1: Interrupts and System Calls
-## Due 10/17/2022 (Monday) at 11:59pm.
+## Due 01/18/2023 (Wednesday) at 11:59pm.
 
 ## Introduction
 All of our labs are based on the Experimental Kernel (i.e., xk). xk is an experimental
@@ -27,7 +27,7 @@ below. You need to use either an x86_64 linux machine or a mac. You
 can also use attu by logging into it remotely (`ssh attu.cs.washington.edu`).
 
 ```
-$ git clone git@gitlab.cs.washington.edu:xk-public/22au.git xk
+$ git clone git@gitlab.cs.washington.edu:xk-public/23wi.git xk
 Cloning into xk...
 $ cd xk
 ```
@@ -53,7 +53,7 @@ team member should directly pull the newly created repo.
 ```
 $ git clone git@gitlab.cs.washington.edu:<uwid>/<proj_name>.git
 $ cd <proj_name>
-$ git remote add upstream git@gitlab.cs.washington.edu:xk-public/22au.git
+$ git remote add upstream git@gitlab.cs.washington.edu:xk-public/23wi.git
 ```
 Before you start coding, add a git tag
 ```
@@ -79,7 +79,7 @@ We have set up the appropriate compilers and simulators for you on attu.
 **Run the following command every time you log into attu:**
 
 ```
-export PATH=/cse/courses/cse451/22au/bin/x86_64-softmmu:$PATH
+export PATH=/cse/courses/cse451/23wi/bin/x86_64-softmmu:$PATH
 ```
 or add it to your shell startup file (`~/.bashrc` for BASH) for automatic execution.
 

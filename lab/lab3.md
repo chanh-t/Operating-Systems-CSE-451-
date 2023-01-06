@@ -1,6 +1,6 @@
 # Lab 3: Address Space Management
-## Design Doc Due: 11/10/22 (Thursday) at 11:59pm. No late days.
-## Complete Lab Due: 11/18/22 (Friday) at 11:59pm.
+## Design Doc Due: 02/10/2023 (Friday) at 11:59pm. No late days.
+## Complete Lab Due: 02/17/2023 (Friday) at 11:59pm.
 
 To get lab3 handout and tests, run the command
 
