@@ -17,6 +17,13 @@ struct inode {
   struct extent data;
 };
 
+struct file {
+  struct inode* inode_ptr; // current inode
+  int offset;  // Offset in file
+  int mode;     // Modes (eg. O_RDONLY, O_WRONLY, ...)
+  int ref;       // Reference count
+}
+
 // table mapping device ID (devid) to device functions
 struct devsw {
   int (*read)(struct inode *, char *, int);
