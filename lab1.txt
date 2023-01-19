@@ -1,0 +1,77 @@
+### Question #1:
+In the GDB script (`.gdbinit.tmpl`) that is provided, we already set a breakpoint at the entrance of xk (`main` in `kernel/main.c`). xk will go through the booting and stop at `main`. Which line of code in `main` (a) prints the cpu information and (b) prints the physical memory table? (Hint: use the `n` command)
+Please write down both the line number and the code in the line.
+
+22        cpuid_print();
+23        e820_print();
+
+### Question #2:
+What's the memory address of `main` function for the kernel? Does GDB work with real physical addresses or virtual addresses?
+Please also explain how you found the answer to the last part of this question.
+
+Address: 0xffffffff801037a9
+GDB works with virtual addresses since the memory address of the main function is so high up that no modern personal computer has memory device
+that is large enough to have 0xffffffff801037a9 as a physcial memory address 
+
+### Question #3
+Why does xk map kernel and user-application into the same address space? (Why does the kernel not have a separate address space?)
+
+1) xk maps kernel and user-application to the same address space so that kernel code can directly refer to
+application's address.
+
+2) If kernel and user-application in the same address space, then when we translate the virtual address, we can just use the same page table for 
+kernel and user-application, this eliminates the overhead of switching different page table since if kernel and user-application are mapped to different
+address space, we need to keep two different page tables for two address space respectively.
+
+### Question #4
+Why is the xk user malloc (`user/umalloc.c:malloc`) different from the xk kernel malloc (`kernel/kalloc.c:kalloc`)?
+
+1)umalloc will allow user applications to allocate virtual memory whereas kmalloc will basically allow kernel to allocate physcial memory.
+  I think the reason why we have two differenet allocators for user-applications and kernel could be a security concern, since we want to forbid
+  the user to directly access certain restricted area of physical memory to prevent malicious attack. That is why we have kalloc and 
+  let the kernel to handle physical memory allocation.
+
+Why is the xk user printf (`user/printf.c:printf`) different from the xk kernel printf (`kernel/console.c:cprintf`)?
+
+2) user printf will trigger a syscall and then sys_write will execute the actual writing in kernel whereas kernel cprintf will 
+  not need to do that as it can directly write to the console. I think this design is also for security concern, since we do not want
+  the user to access certain devices. So we want the user to be trapped by syscall and let the kernel to handle the printing and what the application
+  is printing to. Another reason could be for debugging purpose, since user printf relies on file api, it may not work properly if our syscalls are not 
+   implemented correctly. That means kernel cprintf may come in handy, when we want to debugy the code.
+
+### Question #5
+What is the first line of c code executed in the kernel when there is an interrupt? To force an interrupt, perform a system call. Add a `sleep` call within `lab1test.c` and use gdb to trace through it with the `si` command.
+You can use the `initcode` and `kern` commands in gdb to switch between user and kernel mode respectively.
+You can also use the `lab1_test` command in GDB to load the symbols for lab1 test program.
+
+void trap(struct trap_frame *tf) {
+
+### Question #6
+How large (in bytes) is a trap frame?
+
+176
+
+### Question #7
+Set a breakpoint in the kernel implementation of a system call (e.g., `sys_sleep`) and continue
+executing until the breakpoint is hit (be sure to call `sleep` within `lab1test.c`). Do a backtrace, `bt` in gdb. What kernel functions are reported by
+the backtrace when it reaches `sys_sleep`?
+
+sys_sleep()
+syscall()
+trap()
+alltraps()
+
+
+### Question #8
+For each member of the project team, how many hours did you
+spend on this lab?
+
+George 5-10 hours
+Chanh 5-10 hours
+
+
+### Question #9
+What did you like or dislike about this lab? Is there anything you wish you knew earlier?
+
+We think the instruction of the programming part is not very clear and the spec sometimes can be quite confusing.
+I wish i could start the lab ealier and go to the office hour sooner when i got questions.
