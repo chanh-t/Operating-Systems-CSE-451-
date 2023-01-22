@@ -17,7 +17,8 @@ struct inode {
   struct extent data;
 };
 
-struct file {
+// file 
+struct file_info {
   struct inode* inode_ptr; // current inode
   int offset;  // Offset in file
   int mode;     // Modes (eg. O_RDONLY, O_WRONLY, ...)
