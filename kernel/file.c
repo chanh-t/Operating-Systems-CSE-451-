@@ -11,3 +11,4 @@
 #include <spinlock.h>
 
 struct devsw devsw[NDEV];
+struct file_info file_table[NFILE];
