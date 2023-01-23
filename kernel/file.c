@@ -15,7 +15,7 @@
 struct devsw devsw[NDEV];
 struct file_info file_table[NFILE];
 
-static int find_free_fd(int i, struct proc* proc);
+static int find_free_fd(int i, struct proc *proc);
 
 // Finds an open spot in the process open file table and has it point the global open file table entry.
 // Finds an open entry in the global open file table and allocates a new file_info struct
@@ -24,13 +24,16 @@ static int find_free_fd(int i, struct proc* proc);
 
 // Use the type field to check for a device. See stat.h for possible values.
 // Returns the index into the process open file table as the file descriptor, or -1 on failure.
-int fileopen(char* path, int mode) {
-  struct inode* inode = namei(path); // returns pointer to inode
-  struct proc* proc = myproc();
-  if (inode == NULL) return -1;
+int fileopen(char *path, int mode)
+{
+  struct inode *inode = namei(path); // returns pointer to inode
+  struct proc *proc = myproc();
+  if (inode == NULL)
+    return -1;
 
   locki(inode);
-  if (inode->type != T_DEV && mode != O_RDONLY) {
+  if (inode->type != T_DEV && mode != O_RDONLY)
+  {
     unlocki(inode);
     return -1;
   }
@@ -42,25 +45,29 @@ int fileopen(char* path, int mode) {
   tmp.ref = 1;
 
   int i = 0;
-  while (i < NFILE) {
-    if (file_table[i].inode_ptr == NULL &&
+  while (i < NFILE)
+  {
+    if (file_table[i].inode_ptr == 0x0 &&
         file_table[i].mode == 0 &&
         file_table[i].offset == 0 &&
-        file_table->ref == 0) {
-    file_table[i] = tmp;
-    break;
+        file_table[i].ref == 0)
+    {
+      file_table[i] = tmp;
+      break;
     }
     i++;
   }
 
   // no more file table space left
-  if (i == NFILE) {
+  if (i == NFILE)
+  {
     unlocki(inode);
     return -1;
   }
 
   int fd = find_free_fd(i, proc);
-  if (fd == -1) {
+  if (fd == -1)
+  {
     unlocki(inode);
     return -1;
   }
@@ -69,18 +76,45 @@ int fileopen(char* path, int mode) {
   return fd;
 }
 
-static int find_free_fd(int i, struct proc* proc) {
+static int find_free_fd(int i, struct proc *proc)
+{
   int j;
   j = 0;
-  while (j < NOFILE) {
-    if (proc->fd_table[j] == NULL) {
+  while (j < NOFILE)
+  {
+    if (proc->fd_table[j] == NULL)
+    {
       proc->fd_table[j] = &file_table[i];
       break;
     }
     j++;
   }
-  if (j == NOFILE) {
+  if (j == NOFILE)
+  {
     return -1;
   }
   return j;
+}
+
+int filewrite(char *src, int fd, int n)
+{
+  struct proc *cur = myproc();
+  struct file_info *fpointer = cur->fd_table[fd];
+  // cprintf("%d", fpointer);
+  // uartputc((int)(*src));
+  cprintf("%d\n", cur->fd_table[fd]);
+  if (fpointer == NULL || fpointer->mode == O_RDONLY)
+  {
+    return -1;
+  }
+  cprintf("%d", 2);
+  struct inode *ip = fpointer->inode_ptr;
+  if (ip == NULL)
+  {
+    return -1;
+  }
+  int off = fpointer->offset;
+  int ret = concurrent_writei(ip, src, off, n);
+  fpointer->offset += ret;
+  return ret;
 }

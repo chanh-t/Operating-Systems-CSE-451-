@@ -188,3 +188,10 @@ int sys_sysinfo(void) {
 
   return 0;
 }
+
+int argfd(int n, int* fdpointer){
+   if(*fdpointer < 0 || *fdpointer >= NOFILE) {
+      return -1;
+   }
+   return 0; 
+}

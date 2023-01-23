@@ -29,21 +29,40 @@ int sys_read(void) {
 int sys_write(void) {
   // you have to change the code in this function.
   // Currently it supports printing one character to the screen.
+  int fd;
+  int n;
+  char *p;
 
-  int fd; // file descriptor
-  char *p; // buffer of bytes to write to fd
-  int n; // # of bytes to write of p
-
-  if (argint(2, &n) < 0 || argptr(1, &p, n) < 0 /*|| argfd(0, fd)*/ ) {
+  if (argint(0, &fd) < 0 || argfd(0, &fd) < 0 || argint(2, &n) < 0 || argptr(1, &p, n) < 0) {
     return -1;
   }
+  // cprintf("%d", fd);
+  // uartputc((int)(*p));
+  // return 1;
+  return filewrite(p, fd, n);
+  
 
-  uartputc((int)(*p)); // <- TODO: Replace function
-  return 1;
+
+  // int fd; // file descriptor
+  // char *p; // buffer of bytes to write to fd
+  // int n; // # of bytes to write of p
+
+  // if (argint(2, &n) < 0 || argptr(1, &p, n) < 0 /*|| argfd(0, fd)*/ ) {
+  //   return -1;
+  // }
+
+  // uartputc((int)(*p)); // <- TODO: Replace function
+  // return 1;
+
 }
 
+
 int sys_close(void) {
-  // LAB1
+  // int fd;
+  // if (argint(0, &fd) < 0 || argfd(0, &fd) < 0) {
+  //   return -1;
+  // }
+  // fileclose(fd);
   return -1;
 }
 
@@ -82,7 +101,7 @@ int sys_open(void) {
   char* path; // param 1: path to file
   int mode; // param 2: mode we want to open the file in
 
-  if (argstr(0, &path) || argint(1, &mode)) {
+  if (argstr(0, &path) < 0 || argint(1, &mode) < 0) {
     return -1;
   }
 

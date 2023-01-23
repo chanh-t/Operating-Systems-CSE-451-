@@ -23,7 +23,7 @@ struct file_info {
   int offset;  // Offset in file
   int mode;     // Modes (eg. O_RDONLY, O_WRONLY, ...)
   int ref;       // Reference count
-}
+};
 
 // table mapping device ID (devid) to device functions
 struct devsw {
@@ -37,3 +37,7 @@ extern struct devsw devsw[];
 enum {
   CONSOLE = 1,
 };
+
+
+int fileopen(char * path, int mode);
+int filewrite(char *src, int fd, int n);

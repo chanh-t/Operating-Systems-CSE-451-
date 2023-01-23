@@ -186,6 +186,7 @@ int argint(int, int *);
 int argint64(int, int64_t *);
 int argptr(int, char **, int);
 int argstr(int, char **);
+int argfd(int, int *);
 int fetchint(uint64_t, int *);
 int fetchint64_t(uint64_t, int64_t *);
 int fetchstr(uint64_t, char **);
