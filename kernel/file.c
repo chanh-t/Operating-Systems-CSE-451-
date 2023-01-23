@@ -37,7 +37,6 @@ int fileopen(char *path, int mode)
     unlocki(inode);
     return -1;
   }
-
   struct file_info tmp;
   tmp.inode_ptr = inode;
   tmp.mode = mode;
@@ -96,18 +95,33 @@ static int find_free_fd(int i, struct proc *proc)
   return j;
 }
 
+int fileread(char *src, int fd, int n)
+{
+  struct proc *cur = myproc();
+  struct file_info *fpointer = cur->fd_table[fd];
+  if (fpointer == NULL || fpointer->mode == O_WRONLY)
+  {
+    return -1;
+  }
+  struct inode *ip = fpointer->inode_ptr;
+  if (ip == NULL)
+  {
+    return -1;
+  }
+  int off = fpointer->offset;
+  int ret = concurrent_readi(ip, src, off, n);
+  fpointer->offset += ret;
+  return ret;
+}
+
 int filewrite(char *src, int fd, int n)
 {
   struct proc *cur = myproc();
   struct file_info *fpointer = cur->fd_table[fd];
-  // cprintf("%d", fpointer);
-  // uartputc((int)(*src));
-  cprintf("%d\n", cur->fd_table[fd]);
   if (fpointer == NULL || fpointer->mode == O_RDONLY)
   {
     return -1;
   }
-  cprintf("%d", 2);
   struct inode *ip = fpointer->inode_ptr;
   if (ip == NULL)
   {
@@ -117,4 +131,60 @@ int filewrite(char *src, int fd, int n)
   int ret = concurrent_writei(ip, src, off, n);
   fpointer->offset += ret;
   return ret;
+}
+
+int fileclose(int fd)
+{
+  struct proc *cur = myproc();
+  struct file_info *fpointer = cur->fd_table[fd];
+  if (fpointer == NULL || fpointer -> ref == 0) {
+    return -1;
+  }
+  fpointer -> ref -= 1;
+  if (fpointer -> ref <= 0) {
+    irelease(fpointer->inode_ptr);
+    fpointer -> inode_ptr = NULL;
+    fpointer -> mode = 0;
+    fpointer -> offset = 0;
+  }
+  // cprintf("%d\n", fd);
+  cur->fd_table[fd] = NULL;
+  return 0;
+}
+
+
+int filedup(int fd)
+{
+  struct proc *cur = myproc();
+  struct file_info *fpointer = cur->fd_table[fd];
+  if (fpointer == NULL) {
+    return -1;
+  }
+  int ret = -1;
+  for (int i = 0; i < NOFILE; i++) {
+    if (cur->fd_table[i] != NULL){
+      continue;
+    } else {
+      cur->fd_table[i] = fpointer;
+      fpointer -> ref += 1;
+      ret = i;
+      break;
+    }
+  }
+  return ret;
+}
+
+int filestat(int fd, struct stat* fstat)
+{
+  struct proc *cur = myproc();
+  struct file_info *fpointer = cur->fd_table[fd];
+  struct inode* inode = fpointer->inode_ptr;
+  if (fpointer == NULL || inode == NULL) {
+    return -1;
+  }
+  fstat->type = inode->type;
+  fstat->dev = inode->dev;
+  fstat->ino = inode->inum;
+  fstat->size = inode->size;
+  return 0;
 }

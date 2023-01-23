@@ -41,3 +41,8 @@ enum {
 
 int fileopen(char * path, int mode);
 int filewrite(char *src, int fd, int n);
+int fileread(char *src, int fd, int n);
+int filedup(int fd);
+int filestat(int fd, struct stat* fstat);
+int fileclose(int fd);
+

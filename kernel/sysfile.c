@@ -16,61 +16,65 @@
 #include <spinlock.h>
 #include <stat.h>
 
-int sys_dup(void) {
+int sys_dup(void)
+{
   // LAB1
-  return -1;
+  int fd;
+  if (argint(0, &fd) < 0 || argfd(0, &fd) < 0) {  
+    return -1;
+  }
+  return filedup(fd);
 }
 
-int sys_read(void) {
+int sys_read(void)
+{
   // LAB1
-  return -1;
-}
-
-int sys_write(void) {
-  // you have to change the code in this function.
-  // Currently it supports printing one character to the screen.
   int fd;
   int n;
   char *p;
 
-  if (argint(0, &fd) < 0 || argfd(0, &fd) < 0 || argint(2, &n) < 0 || argptr(1, &p, n) < 0) {
+  if (argint(0, &fd) < 0 || argfd(0, &fd) < 0 || argint(2, &n) < 0 || argptr(1, &p, n) < 0)
+  {
     return -1;
   }
-  // cprintf("%d", fd);
-  // uartputc((int)(*p));
-  // return 1;
+
+  return fileread(p, fd, n);
+}
+
+int sys_write(void)
+{
+  int fd;
+  int n;
+  char *p;
+
+  if (argint(0, &fd) < 0 || argfd(0, &fd) < 0 || argint(2, &n) < 0 || argptr(1, &p, n) < 0)
+  {
+    return -1;
+  }
   return filewrite(p, fd, n);
-  
-
-
-  // int fd; // file descriptor
-  // char *p; // buffer of bytes to write to fd
-  // int n; // # of bytes to write of p
-
-  // if (argint(2, &n) < 0 || argptr(1, &p, n) < 0 /*|| argfd(0, fd)*/ ) {
-  //   return -1;
-  // }
-
-  // uartputc((int)(*p)); // <- TODO: Replace function
-  // return 1;
-
 }
 
-
-int sys_close(void) {
-  // int fd;
-  // if (argint(0, &fd) < 0 || argfd(0, &fd) < 0) {
-  //   return -1;
-  // }
-  // fileclose(fd);
-  return -1;
+int sys_close(void)
+{
+  int fd;
+  if (argint(0, &fd) < 0 || argfd(0, &fd) < 0) {
+    return -1;
+  }
+  return fileclose(fd);
+  // return -1;
 }
 
-int sys_fstat(void) {
+int sys_fstat(void)
+{
   // LAB1
-  return -1;
+  int fd;
+  struct stat* fstat;
+  if (argint(0, &fd) < 0 || argfd(0, &fd) < 0 || argptr(1, (char**)&fstat, sizeof(*fstat)) < 0)
+  {
+    return -1;
+  }
+  return filestat(fd, fstat);
 }
-
 
 /*
  * arg0: char * [path to the file]
@@ -86,42 +90,44 @@ int sys_fstat(void) {
  * returns -1 on error
  *
  * Errors:
- * arg0 points to an invalid or unmapped address 
- * there is an invalid address before the end of the string 
+ * arg0 points to an invalid or unmapped address
+ * there is an invalid address before the end of the string
  * the file does not exist
- * there is no available file descriptor 
+ * there is no available file descriptor
  * since the file system is read only, any write flags for non console files are invalid
  * O_CREATE is not permitted (for now)
  *
  * note that for lab1, the file system does not support file create
  */
 
-int sys_open(void) {
+int sys_open(void)
+{
   // LAB1
-  char* path; // param 1: path to file
-  int mode; // param 2: mode we want to open the file in
+  char *path; // param 1: path to file
+  int mode;   // param 2: mode we want to open the file in
 
-  if (argstr(0, &path) < 0 || argint(1, &mode) < 0) {
+  if (argstr(0, &path) < 0 || argint(1, &mode) < 0)
+  {
     return -1;
   }
 
-  if (mode != O_RDONLY) {
-    return -1;
-  }
   return fileopen(path, mode);
 }
 
-int sys_exec(void) {
+int sys_exec(void)
+{
   // LAB2
   return -1;
 }
 
-int sys_pipe(void) {
+int sys_pipe(void)
+{
   // LAB2
   return -1;
 }
 
-int sys_unlink(void) {
+int sys_unlink(void)
+{
   // LAB 4
   return -1;
 }

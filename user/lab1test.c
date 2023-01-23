@@ -35,11 +35,11 @@ void nofilestest(void);
 
 int main() {
 
-  // if(open("console", O_RDWR) < 0){
-  //   return -1;
-  // }
-  // dup(0);     // stdout
-  // dup(0);     // stderr
+  if(open("console", O_RDWR) < 0){
+    return -1;
+  }
+  dup(0);     // stdout
+  dup(0);     // stderr
 
   printf(stdout, "hello world\n");
 
