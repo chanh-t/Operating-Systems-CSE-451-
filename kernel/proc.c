@@ -134,12 +134,11 @@ int fork(void) {
   // chan       - check
   // killed     - check (done by allocproc)
   // fd_table   - 
-  acquire(&ptable.lock);
   struct proc *p = allocproc(); 
   if (p == 0) {
     return -1;
   }
-
+  acquire(&ptable.lock);
   // is this necessary?
   assert(vspaceinit(&p->vspace) == 0);
   // copied vspace
@@ -150,16 +149,16 @@ int fork(void) {
   // copied pointer to parent and state (RUNNABLE)
   p->parent = myproc();
   p->state = RUNNABLE;
-
   // how
   for (int i = 0; i < NOFILE; i++) {
     if (myproc()->fd_table[i] == NULL) continue;
     p->fd_table[i] = myproc()->fd_table[i];
+    //acquiresleep(&myproc()->fd_table[i]->lock);
     p->fd_table[i]->ref++;
+    //releasesleep(&myproc()->fd_table[i]->lock);
   }
-
   release(&ptable.lock);
-  return 0;
+  return p->pid;
 }
 
 // Exit the current process.  Does not return.
@@ -174,6 +173,7 @@ void exit(void) {
 int wait(void) {
   // your code here
   // Scan through table looking for exited children.
+
   return -1;
 }
 
