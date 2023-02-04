@@ -122,6 +122,43 @@ void userinit(void) {
 // Caller must set state of returned proc to RUNNABLE.
 int fork(void) {
   // your code here
+
+  // to set up:
+  // kstack     - check (done by allocproc)
+  // vspace     - check
+  // pid        - check (done by allocproc)
+  // state      - check
+  // parent     - check
+  // trap_frame - check
+  // context    - done for us? (done by allocproc)
+  // chan       - check
+  // killed     - check (done by allocproc)
+  // fd_table   - 
+  acquire(&ptable.lock);
+  struct proc *p = allocproc(); 
+  if (p == 0) {
+    return -1;
+  }
+
+  // is this necessary?
+  assert(vspaceinit(&p->vspace) == 0);
+  // copied vspace
+  assert(vspacecopy(&p->vspace, &myproc()->vspace) == 0);
+  // copied trap_frame
+  memmove(p->tf, myproc()->tf, sizeof(struct trap_frame));
+  p->tf->rax = 0;
+  // copied pointer to parent and state (RUNNABLE)
+  p->parent = myproc();
+  p->state = RUNNABLE;
+
+  // how
+  for (int i = 0; i < NOFILE; i++) {
+    if (myproc()->fd_table[i] == NULL) continue;
+    p->fd_table[i] = myproc()->fd_table[i];
+    p->fd_table[i]->ref++;
+  }
+
+  release(&ptable.lock);
   return 0;
 }
 
