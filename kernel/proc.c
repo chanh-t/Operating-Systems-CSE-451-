@@ -166,6 +166,26 @@ int fork(void) {
 // until its parent calls wait() to find out it exited.
 void exit(void) {
   // your code here
+
+  // close all files
+  for (int i = 0; i < NOFILE; i++) {
+    if (myproc()->fd_table[i] != NULL) {
+      sys_close(i);
+    }
+  }
+
+  acquire(&ptable.lock);
+  for (int i = 0; i < NPROC; i++) {
+    if (ptable.proc[i].parent == myproc()) {
+      ptable.proc[i].parent = initproc;
+    }
+    if (initproc->state == SLEEPING) {
+      wakeup1(initproc->chan);
+    }
+  }
+  wakeup1(myproc()->chan);
+  myproc()->state = ZOMBIE;
+  release(&ptable.lock);
 }
 
 // Wait for a child process to exit and return its pid.
@@ -174,7 +194,39 @@ int wait(void) {
   // your code here
   // Scan through table looking for exited children.
 
+  acquire(&ptable.lock);
+  for (int i = 0; i < NPROC; i++) {
+    struct proc* proc = &ptable.proc[i];
+    if (proc->parent != myproc()) continue;
+    // a child process exists!
+
+    // below: if we find an exited() process
+    if (proc->state == ZOMBIE || proc->killed != 0) {
+      release(&ptable.lock);
+      return proc->pid;
+    }
+
+    while (proc->state != ZOMBIE && proc->killed != 0) {
+      sleep(proc->chan, &ptable.lock);
+    }
+
+    kfree(proc->kstack);
+    proc->kstack = NULL;
+
+    vspacefree(&proc->vspace);
+    memset(proc, 0, sizeof(struct proc));
+    
+    release(&ptable.lock);
+    return proc->pid;
+  }
+  // no child 
+  // check for exited children with state of ZOMBIE()
+  // and proc->parent -- myproc()->pid
+
+  // what to do when we find it?
+  release(&ptable.lock);
   return -1;
+
 }
 
 // Per-CPU process scheduler.
