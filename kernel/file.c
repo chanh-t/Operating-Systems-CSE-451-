@@ -162,8 +162,8 @@ int fileclose(int fd)
     fpointer -> mode = 0;
     fpointer -> offset = 0;
   }
-  cur->fd_table[fd] = NULL;
   releasesleep(&fpointer -> lock);
+  cur->fd_table[fd] = NULL;
   return 0;
 }
 
