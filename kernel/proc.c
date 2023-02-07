@@ -138,28 +138,22 @@ int fork(void) {
   if (p == 0) {
     return -1;
   }
-  acquire(&ptable.lock);
   // is this necessary?
   assert(vspaceinit(&p->vspace) == 0);
   // copied vspace
   assert(vspacecopy(&p->vspace, &myproc()->vspace) == 0);
   // copied trap_frame
+  acquire(&ptable.lock);
   memmove(p->tf, myproc()->tf, sizeof(struct trap_frame));
   p->tf->rax = 0;
   // copied pointer to parent and state (RUNNABLE)
   p->parent = myproc();
   p->state = RUNNABLE;
-  // how
   for (int i = 0; i < NOFILE; i++) {
     if (myproc()->fd_table[i] == NULL) continue;
     p->fd_table[i] = myproc()->fd_table[i];
-    // int pid = p->pid;
-    // release(&ptable.lock);
-    // acquiresleep(&myproc()->fd_table[i]->lock);
     p->fd_table[i]->ref++;
-    // releasesleep(&myproc()->fd_table[i]->lock);
-    // acquire(&ptable.lock);
-    // control + c  to pause procgram
+
   }
   release(&ptable.lock);
   return p->pid;
@@ -184,10 +178,10 @@ void exit(void) {
       ptable.proc[i].parent = initproc;
     }
     if (initproc->state == SLEEPING) {
-      wakeup1(initproc->chan);
+      wakeup1(initproc);
     }
   }
-  wakeup1(myproc()->chan);
+  wakeup1(myproc()->parent);
   myproc()->state = ZOMBIE;
   sched();
   release(&ptable.lock);
@@ -205,26 +199,22 @@ int wait(void) {
   acquire(&ptable.lock);
   for (int i = 0; i < NPROC; i++) {
     struct proc* proc = &ptable.proc[i];
-    if (proc->parent != myproc()) continue;
+    // if (proc->parent != myproc() || proc->state == UNUSED) continue;
+    if (proc->parent != myproc()) {
+      continue;
+    } else if (proc->state == UNUSED) {
+      continue;
+    }
     // a child process exists!
-
-    // below: if we find an exited() process
-    if (proc->state == ZOMBIE || proc->killed != 0) {
-      release(&ptable.lock);
-      return proc->pid;
+    while (proc->state != ZOMBIE) {
+      sleep(myproc(), &ptable.lock);
     }
-
-    while (proc->state != ZOMBIE && proc->killed != 0) {
-      sleep(proc->chan, &ptable.lock);
-    }
-
     kfree(proc->kstack);
-    proc->kstack = NULL;
-
+    // proc->kstack = NULL;
     vspacefree(&proc->vspace);
     int temp = proc->pid;
     memset(proc, 0, sizeof(struct proc));
-    
+    proc->state = UNUSED;
     release(&ptable.lock);
     return temp;
   }
@@ -235,7 +225,6 @@ int wait(void) {
   // what to do when we find it?
   release(&ptable.lock);
   return -1;
-
 }
 
 // Per-CPU process scheduler.
