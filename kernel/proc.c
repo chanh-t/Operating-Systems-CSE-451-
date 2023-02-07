@@ -153,9 +153,13 @@ int fork(void) {
   for (int i = 0; i < NOFILE; i++) {
     if (myproc()->fd_table[i] == NULL) continue;
     p->fd_table[i] = myproc()->fd_table[i];
-    //acquiresleep(&myproc()->fd_table[i]->lock);
+    // int pid = p->pid;
+    // release(&ptable.lock);
+    // acquiresleep(&myproc()->fd_table[i]->lock);
     p->fd_table[i]->ref++;
-    //releasesleep(&myproc()->fd_table[i]->lock);
+    // releasesleep(&myproc()->fd_table[i]->lock);
+    // acquire(&ptable.lock);
+    // control + c  to pause procgram
   }
   release(&ptable.lock);
   return p->pid;
@@ -185,6 +189,7 @@ void exit(void) {
   }
   wakeup1(myproc()->chan);
   myproc()->state = ZOMBIE;
+  sched();
   release(&ptable.lock);
 }
 
@@ -194,6 +199,9 @@ int wait(void) {
   // your code here
   // Scan through table looking for exited children.
 
+// trigger a breakpoint to a memory
+// look for ptable lock
+// get address of lock field
   acquire(&ptable.lock);
   for (int i = 0; i < NPROC; i++) {
     struct proc* proc = &ptable.proc[i];
@@ -214,10 +222,11 @@ int wait(void) {
     proc->kstack = NULL;
 
     vspacefree(&proc->vspace);
+    int temp = proc->pid;
     memset(proc, 0, sizeof(struct proc));
     
     release(&ptable.lock);
-    return proc->pid;
+    return temp;
   }
   // no child 
   // check for exited children with state of ZOMBIE()
