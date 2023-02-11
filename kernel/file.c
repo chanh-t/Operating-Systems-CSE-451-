@@ -168,7 +168,7 @@ int filewrite(char *src, int fd, int n)
     // lock the pipe
     acquire(&fpointer->pipe->lock); 
     int to_write;
-    for (int i = 0; i <= n; i++) {
+    for (int i = 0; i < n; i++) {
       // how much can write till reach read
       to_write = buffer_size - fpointer->pipe->offset_write%buffer_size + fpointer->pipe->offset_read%buffer_size;  
       // if the pipe is full wake up the reader
@@ -343,6 +343,7 @@ int filepipe(int* fds) {
   // check if there is enough space in kernel to allocate the pipe
   if (!(pipe = (struct file_pipe*)kalloc())) {
     releasesleep(&file_table[reader_fd].lock);
+    releasesleep(&file_table[writer_fd].lock);
     return -1;
   }  
   initlock(&pipe->lock, "pipe"); 
