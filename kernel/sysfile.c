@@ -47,7 +47,7 @@ int sys_write(void)
   int n;
   char *p;
 
-  if (argint(0, &fd) < 0 || argfd(0, &fd) < 0 || argint(2, &n) < 0 || argptr(1, &p, n) < 0)
+  if (argint(0, &fd) < 0 || argfd(0, &fd) < 0 || argint(2, &n) < 0 || argstr(1, &p) < 0 || argptr(1, &p, n) < 0)
   {
     return -1;
   }

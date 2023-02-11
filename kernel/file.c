@@ -104,37 +104,35 @@ int fileread(char *src, int fd, int n)
 {
   struct proc *cur = myproc();
   struct file_info *fpointer = cur->fd_table[fd];
-  int ret;
+  int ret = 0;
   if (fpointer == NULL || fpointer->mode == O_WRONLY)
   {
     return -1;
-  } else {
-    acquiresleep(&fpointer->lock);
   }
   if (fpointer -> is_pipe == 1) {
-    int buffer_size = 4096 -  6 * sizeof(int) - sizeof(struct spinlock);
+    int buffer_size = 3500;
     acquire(&fpointer->pipe->lock);
     int to_read;
     for (int i = 0; i < n; i++) {
-      // check how much left to_read
+    // check how much left to_read
       to_read = fpointer->pipe->offset_write - fpointer->pipe->offset_read;
       while (to_read == 0) {
         // if no writer left and no data in pipe return 0
         if (fpointer->pipe->writer == 0) {
-          releasesleep(&fpointer->lock);
           release(&fpointer->pipe->lock);
-          return 0;
+          return ret;
         }
         wakeup(&fpointer->pipe->writer);
         sleep(&fpointer->pipe->reader, &fpointer->pipe->lock);
         to_read = fpointer->pipe->offset_write - fpointer->pipe->offset_read;
       }
       src[i] = fpointer->pipe->buffer[fpointer->pipe->offset_read%buffer_size];
-      ret++;
+        ret++;
       fpointer->pipe->offset_read++;
     }
     release(&fpointer->pipe->lock);
   } else {
+    acquiresleep(&fpointer->lock);
     struct inode *ip = fpointer->inode_ptr;
     if (ip == NULL)
     {
@@ -144,24 +142,22 @@ int fileread(char *src, int fd, int n)
     int off = fpointer->offset;
     ret = concurrent_readi(ip, src, off, n);
     fpointer->offset += ret;
+    releasesleep(&fpointer -> lock);
   }
-  releasesleep(&fpointer -> lock);
   return ret;
 }
 
 int filewrite(char *src, int fd, int n)
-{
+{ 
   struct proc *cur = myproc();
   struct file_info *fpointer = cur->fd_table[fd];
-  int ret;
-  if (fpointer == NULL || fpointer->mode == O_RDONLY) {   
+  int ret = 0;
+  if (fpointer == NULL || fpointer->mode == O_RDONLY) { 
     return -1;
-  } else {
-    acquiresleep(&fpointer->lock);
   }
   if (fpointer->is_pipe == 1) {
     // return -1 if there is no reader in pipe
-    int buffer_size = 4096 -  6 * sizeof(int) - sizeof(struct spinlock);
+    int buffer_size = 3500;
     // lock the pipe
     acquire(&fpointer->pipe->lock); 
     int to_write;
@@ -170,15 +166,14 @@ int filewrite(char *src, int fd, int n)
       to_write = buffer_size - fpointer->pipe->offset_write%buffer_size + fpointer->pipe->offset_read%buffer_size;  
       // if the pipe is full wake up the reader
       while (to_write == 0) {
-        if (fpointer->pipe->reader == 0) {
-          release(&fpointer->pipe->lock);
-          releasesleep(&fpointer->lock);
-          return -1;
-        }
         wakeup(&fpointer->pipe->reader);
         sleep(&fpointer->pipe->writer, &fpointer->pipe->lock);
         to_write = buffer_size - fpointer->pipe->offset_write%buffer_size + fpointer->pipe->offset_read%buffer_size;  
-      }
+      }      
+      if (fpointer->pipe->reader == 0) {
+          release(&fpointer->pipe->lock);
+          return -1;
+     }
       // break when we fulfill the writing task
       fpointer->pipe->buffer[fpointer->pipe->offset_write%buffer_size] = src[i];
       ret++;
@@ -186,6 +181,7 @@ int filewrite(char *src, int fd, int n)
     } 
     release(&fpointer->pipe->lock);
   } else {
+    acquiresleep(&fpointer->lock);
     struct inode *ip = fpointer->inode_ptr;
     if (ip == NULL)
     {
@@ -195,8 +191,8 @@ int filewrite(char *src, int fd, int n)
     int off = fpointer->offset;
     ret = concurrent_writei(ip, src, off, n);
     fpointer->offset += ret;
+    releasesleep(&fpointer -> lock);
   }
-  releasesleep(&fpointer -> lock);
   return ret;
 }
 
@@ -212,28 +208,28 @@ int fileclose(int fd)
   fpointer -> ref -= 1;
   // deal with pipe 
   if (fpointer -> is_pipe == 1) {
-      acquire(&fpointer->pipe->lock);
-      if (fpointer->mode == O_WRONLY) {
-        fpointer->pipe->writer = fpointer->ref;
-        // fpointer->pipe->writer = fpointer;
-      } else {
-        fpointer->pipe->reader = fpointer->ref;
+    acquire(&fpointer->pipe->lock);
+    if (fpointer->mode == O_WRONLY) {
+      fpointer->pipe->writer = fpointer->ref;
+      // fpointer->pipe->writer = fpointer;
+    } else {
+      fpointer->pipe->reader = fpointer->ref;
+    }
+    if (fpointer->pipe->reader == 0 && fpointer->pipe->writer == 0) {
+      release(&fpointer->pipe->lock);
+      kfree((char *)fpointer->pipe);
+      fpointer -> pipe = NULL;
+    } else {
+      if (fpointer->pipe->writer == 0) {
+        wakeup(&fpointer->pipe->reader);
       }
-      if (fpointer->pipe->reader == 0 && fpointer->pipe->writer == 0) {
-        release(&fpointer->pipe->lock);
-        kfree((char *)fpointer->pipe);
-        fpointer -> pipe = NULL;
-      } else {
-        if (fpointer->pipe->writer == 0) {
-          wakeup(&fpointer->pipe->reader);
-        }
-        if (fpointer->pipe->reader == 0) {
-          wakeup(&fpointer->pipe->writer);
-        }
-        release(&fpointer->pipe->lock);
+      if (fpointer->pipe->reader == 0) {
+        wakeup(&fpointer->pipe->writer);
       }
-  }
-  if (fpointer -> ref <= 0) {
+      release(&fpointer->pipe->lock);
+    }
+    releasesleep(&fpointer -> lock);
+  } else if (fpointer -> ref <= 0) {
     if (fpointer -> is_pipe != 1) {
       irelease(fpointer->inode_ptr);
     } else {
@@ -242,8 +238,10 @@ int fileclose(int fd)
     fpointer -> inode_ptr = NULL;
     fpointer -> mode = 0;
     fpointer -> offset = 0;
+    releasesleep(&fpointer -> lock);
+  } else {
+    releasesleep(&fpointer -> lock);
   }
-  releasesleep(&fpointer -> lock);
   fpointer = NULL;
   return 0;
 }

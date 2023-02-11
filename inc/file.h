@@ -42,9 +42,9 @@ enum {
 };
 
 struct file_pipe {
-  char* buffer;
+  char buffer[3500];
   struct spinlock lock;
-  int offset_read; //offset for reader
+  int offset_read; //offset for reader  
   int offset_write; //offset for writer
   int reader; // reference count for reader
   int writer; // reference count for writer
@@ -53,9 +53,10 @@ struct file_pipe {
 };
 
 int fileopen(char * path, int mode);
-int filewrite(char *src, int fd, int n);
-int fileread(char *src, int fd, int n);
+int filewrite(char* src, int fd, int n);
+int fileread(char* src, int fd, int n);
 int filedup(int fd);
 int filestat(int fd, struct stat* fstat);
 int fileclose(int fd);
+int filepipe(int * fds);
 

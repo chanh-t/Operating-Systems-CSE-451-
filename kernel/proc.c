@@ -143,8 +143,8 @@ int fork(void) {
   // copied vspace
   assert(vspacecopy(&p->vspace, &myproc()->vspace) == 0);
   // copied trap_frame
-  acquire(&ptable.lock);
   memmove(p->tf, myproc()->tf, sizeof(struct trap_frame));
+  acquire(&ptable.lock);
   p->tf->rax = 0;
   // copied pointer to parent and state (RUNNABLE)
   p->parent = myproc();
