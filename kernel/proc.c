@@ -153,7 +153,6 @@ int fork(void) {
     if (myproc()->fd_table[i] == NULL) continue;
     p->fd_table[i] = myproc()->fd_table[i];
     p->fd_table[i]->ref++;
-
   }
   release(&ptable.lock);
   return p->pid;
@@ -176,9 +175,6 @@ void exit(void) {
   for (int i = 0; i < NPROC; i++) {
     if (ptable.proc[i].parent == myproc()) {
       ptable.proc[i].parent = initproc;
-    }
-    if (initproc->state == SLEEPING) {
-      wakeup1(initproc);
     }
   }
   wakeup1(myproc()->parent);

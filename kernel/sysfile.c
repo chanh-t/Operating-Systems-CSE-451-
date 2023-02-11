@@ -121,9 +121,13 @@ int sys_exec(void)
 }
 
 int sys_pipe(void)
-{
+{  
   // LAB2
-  return -1;
+  int *fds;
+  if (argptr(0, (char**)&fds, 2 * sizeof(int)) < 0) {
+    return -1;
+  }
+  return filepipe(fds);
 }
 
 int sys_unlink(void)

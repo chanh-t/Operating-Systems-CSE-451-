@@ -24,6 +24,8 @@ struct file_info {
   int offset;  // Offset in file
   int mode;     // Modes (eg. O_RDONLY, O_WRONLY, ...)
   int ref;       // Reference count
+  int is_pipe; // if 1 then is pipe otherwise 0 
+  struct file_pipe* pipe;
 };
 
 // table mapping device ID (devid) to device functions
@@ -39,11 +41,21 @@ enum {
   CONSOLE = 1,
 };
 
+struct file_pipe {
+  char* buffer;
+  struct spinlock lock;
+  int offset_read; //offset for reader
+  int offset_write; //offset for writer
+  int reader; // reference count for reader
+  int writer; // reference count for writer
+  int full; // if full, set to 1 else 0
+  int empty; // if empty, set to 1 else 0
+};
 
 int fileopen(char * path, int mode);
 int filewrite(char *src, int fd, int n);
 int fileread(char *src, int fd, int n);
 int filedup(int fd);
-int filestat(int fd, struct stat *fstat);
+int filestat(int fd, struct stat* fstat);
 int fileclose(int fd);
 
