@@ -126,9 +126,7 @@ int fileread(char *src, int fd, int n)
           return 0;
         }
         wakeup(&fpointer->pipe->writer);
-        cprintf("1");
         sleep(&fpointer->pipe->reader, &fpointer->pipe->lock);
-        cprintf("2");
         to_read = fpointer->pipe->offset_write - fpointer->pipe->offset_read;
       }
       src[i] = fpointer->pipe->buffer[fpointer->pipe->offset_read%buffer_size];
@@ -162,7 +160,6 @@ int filewrite(char *src, int fd, int n)
     acquiresleep(&fpointer->lock);
   }
   if (fpointer->is_pipe == 1) {
-    cprintf("1");
     // return -1 if there is no reader in pipe
     int buffer_size = 4096 -  6 * sizeof(int) - sizeof(struct spinlock);
     // lock the pipe
