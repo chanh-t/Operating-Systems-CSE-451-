@@ -42,9 +42,6 @@ int fileopen(char *path, int mode)
   int fd = 0;
   while (i < NFILE)
   {
-    // if (file_table[i].lock.name == NULL) {
-    //   initsleeplock(&file_table[i].lock, "file_info");
-    // }
     acquiresleep(&file_table[i].lock);
     if (file_table[i].inode_ptr == 0x0 &&
         file_table[i].mode == 0 &&
@@ -166,14 +163,18 @@ int filewrite(char *src, int fd, int n)
       to_write = buffer_size - fpointer->pipe->offset_write%buffer_size + fpointer->pipe->offset_read%buffer_size;  
       // if the pipe is full wake up the reader
       while (to_write == 0) {
+        if (fpointer->pipe->reader == 0) {
+          release(&fpointer->pipe->lock);
+          return -1;
+        }
         wakeup(&fpointer->pipe->reader);
         sleep(&fpointer->pipe->writer, &fpointer->pipe->lock);
         to_write = buffer_size - fpointer->pipe->offset_write%buffer_size + fpointer->pipe->offset_read%buffer_size;  
-      }      
+      }
       if (fpointer->pipe->reader == 0) {
           release(&fpointer->pipe->lock);
           return -1;
-     }
+      }      
       // break when we fulfill the writing task
       fpointer->pipe->buffer[fpointer->pipe->offset_write%buffer_size] = src[i];
       ret++;
@@ -242,7 +243,7 @@ int fileclose(int fd)
   } else {
     releasesleep(&fpointer -> lock);
   }
-  fpointer = NULL;
+  cur->fd_table[fd] = NULL;
   return 0;
 }
 

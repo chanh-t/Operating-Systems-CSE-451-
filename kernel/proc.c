@@ -167,7 +167,7 @@ void exit(void) {
   // close all files
   for (int i = 0; i < NOFILE; i++) {
     if (myproc()->fd_table[i] != NULL) {
-      sys_close(i);
+      fileclose(i);
     }
   }
 
