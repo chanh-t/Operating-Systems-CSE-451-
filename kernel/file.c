@@ -124,7 +124,7 @@ int fileread(char *src, int fd, int n)
         to_read = fpointer->pipe->offset_write - fpointer->pipe->offset_read;
       }
       src[i] = fpointer->pipe->buffer[fpointer->pipe->offset_read%buffer_size];
-        ret++;
+      ret++;
       fpointer->pipe->offset_read++;
     }
     release(&fpointer->pipe->lock);
@@ -229,7 +229,6 @@ int fileclose(int fd)
       }
       release(&fpointer->pipe->lock);
     }
-    releasesleep(&fpointer -> lock);
   } else if (fpointer -> ref <= 0) {
     if (fpointer -> is_pipe != 1) {
       irelease(fpointer->inode_ptr);
@@ -239,10 +238,8 @@ int fileclose(int fd)
     fpointer -> inode_ptr = NULL;
     fpointer -> mode = 0;
     fpointer -> offset = 0;
-    releasesleep(&fpointer -> lock);
-  } else {
-    releasesleep(&fpointer -> lock);
   }
+  releasesleep(&fpointer -> lock);
   cur->fd_table[fd] = NULL;
   return 0;
 }
