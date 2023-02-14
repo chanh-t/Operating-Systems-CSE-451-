@@ -117,6 +117,38 @@ int sys_open(void)
 int sys_exec(void)
 {
   // LAB2
+  char* path;
+  char* args[MAXARG];
+
+  // grab arg0 (path)
+  if (argstr(0, &path) == -1) {
+    return -1;
+  }
+ // make sure ls exits and check wait()
+ // check pipe (later?????)
+ // write sys call for goofed locks (ls can't read)
+ 
+  uint64_t addr; // address of the first pointer
+  if (argint64(1, &addr) == -1) {
+    return -1;
+  }
+
+  for (int i = 0; i < MAXARG; i++) {
+    int64_t arg_addr;
+    if (fetchint64_t(addr + 8 * i, &arg_addr) == -1) {
+      return -1;
+    }
+
+    if (arg_addr == 0) {
+      args[i] = 0;
+      return exec(path, args);
+    }
+
+    if (fetchstr(arg_addr, &args[i]) == -1) {
+      return -1;
+    }
+  }
+
   return -1;
 }
 
