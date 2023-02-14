@@ -229,11 +229,13 @@ int fileclose(int fd)
       }
       release(&fpointer->pipe->lock);
     }
-  } else if (fpointer -> ref <= 0) {
+  }  
+  if (fpointer -> ref <= 0) {
     if (fpointer -> is_pipe != 1) {
       irelease(fpointer->inode_ptr);
     } else {
       fpointer -> pipe = NULL;
+      fpointer -> is_pipe = 0;
     }
     fpointer -> inode_ptr = NULL;
     fpointer -> mode = 0;
