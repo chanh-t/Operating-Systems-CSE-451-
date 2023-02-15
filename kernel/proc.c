@@ -223,6 +223,27 @@ int wait(void) {
   return -1;
 }
 
+// set program breaker and increase the user level heeap for n bytes
+int sbrk(int n) {
+  acquire(&ptable.lock);
+  if (n < 0) {
+     n = 0;
+  }
+  struct vspace* vs = &myproc() -> vspace;
+  struct vregion* vr = &vs -> regions[VR_HEAP]; 
+  uint64_t base = vr -> va_base;
+  uint64_t size = vr -> size;
+  uint64_t bound = base + size;
+  if (vregionaddmap(vr, bound, n, VPI_PRESENT, VPI_WRITABLE) < 0) {
+     release(&ptable.lock);
+    return -1;
+  }
+  vr -> size += n;
+  vspaceinvalidate(vs);
+  release(&ptable.lock);
+  return bound;
+}
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
