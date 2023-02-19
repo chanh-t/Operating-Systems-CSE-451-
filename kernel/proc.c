@@ -236,7 +236,6 @@ int sbrk(int n) {
       release(&ptable.lock);
       return -1;
     }
-    vr -> size += n;
   } else if (-n > size) {
     release(&ptable.lock);
     return bound;
@@ -245,8 +244,8 @@ int sbrk(int n) {
       release(&ptable.lock);
       return -1;
     }
-    vr -> size += n;
   }
+  vr -> size += n;
   vspaceinvalidate(vs);
   release(&ptable.lock);
   return bound;
