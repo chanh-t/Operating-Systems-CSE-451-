@@ -114,6 +114,29 @@ addmap_failure:
   return -1;
 }
 
+int 
+vregiondelmap(struct vregion *vr, uint64_t from_va, uint64_t sz)
+{
+  // char *mem;
+  uint64_t a;
+  struct vpage_info *vpi;
+
+  if (-sz + from_va < 0)
+    return -1;
+  for (a = PGROUNDDOWN(from_va); a >= from_va - sz; a -= PGSIZE) {
+    if (!(vpi = va2vpage_info(vr, a))) {
+      return  -1;
+    }
+    if (vpi -> used != 0) {
+      kfree(P2V(vpi->ppn << PT_SHIFT));
+      vpi->used = 0;
+      vpi->present = 0;
+      vpi->writable = 0;
+      vpi->ppn = 0;
+    }
+  }
+  return sz;
+}
 
 // Adds a mapping into the vregion at va of size sz with the given permissions and then
 // copies the data present in data to these addresses
