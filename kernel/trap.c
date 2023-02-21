@@ -79,12 +79,57 @@ void trap(struct trap_frame *tf) {
     if (tf->trapno == TRAP_PF) {
       num_page_faults += 1;
 
+      struct vregion *vreg;
+      struct vpage_info *vpi;
+
+      if((vreg = va2vregion(&myproc()->vspace, addr)) != 0 && (vpi = va2vpage_info(vreg, addr)) != 0 ){
+        
+        struct core_map_entry* map = (struct core_map_entry *)pa2page(vpi->ppn<<PT_SHIFT);
+
+        // cases: cow 1, writable 0 or cow 0, writable 0
+        // if ref = 1 after dereference how do we let other process know
+        // that they can write to it?
+        if (map->ref > 1 && vpi->copy_on_write == 1 && vpi->writable == 0) {
+          char* new_frame = kalloc();
+
+
+
+          acquire_core_map_lock();
+          memset(new_frame, 0, PGSIZE);
+          memmove(new_frame, P2V(vpi->vpn << PT_SHIFT), PGSIZE);
+          map->ref--;
+          vpi->used = 1;
+          vpi->ppn = PGNUM(V2P(new_frame));
+          vpi->present = 1;
+          vpi->writable = 1;
+          vpi->copy_on_write = 0;
+          release_core_map_lock():
+
+          vspaceinvalidate(&myproc()->vspace);
+          vspaceinstall(myproc());
+          break;
+        } else if (map->ref == 1 && vpi->copy_on_write == 1 && vpi->writable == 0) {
+          // since cow = 1, we know it was writable before.
+          acquire_core_map_lock();
+          vpi->writable = 1;
+          vpi->copy_on_write = 0;
+
+          vspaceinstall(&myproc()->vspace);
+          vspaceinstall(myproc());
+          release_core_map_lock();
+          break;
+        }
+      }
+      /*
+      num_page_faults += 1;
+
       if (myproc() == 0 || (tf->cs & 3) == 0) {
         // In kernel, it must be our mistake.
         cprintf("unexpected trap %d from cpu %d rip %lx (cr2=0x%x)\n",
                 tf->trapno, cpunum(), tf->rip, addr);
         panic("trap");
       }
+      */
     }
 
     // Assume process misbehaved.
@@ -94,6 +139,7 @@ void trap(struct trap_frame *tf) {
             tf->rip, addr);
     myproc()->killed = 1;
   }
+  // end if switch statement here
 
   // Force process exit if it has been killed and is in user space.
   // (If it is still executing in the kernel, let it keep running

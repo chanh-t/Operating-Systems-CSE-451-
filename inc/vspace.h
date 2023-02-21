@@ -13,13 +13,16 @@ enum {
 
 #define VPI_PRESENT  ((short) 1)
 #define VPI_WRITABLE ((short) 1)
+#define VPI_READONLY ((short) 0)
 
 struct vpage_info {
-  short used;     // whether the page is in use
-  uint64_t ppn;   // physical page number
-  short present;  // whether the page is in physical memory
-  short writable; // does the page have write permissions
+  short used;          // whether the page is in use
+  uint64_t ppn;        // physical page number
+  short present;       // whether the page is in physical memory
+  short writable;      // does the page have write permissions
   // user defined fields
+
+  short copy_on_write; // whether we copy on a write
 
 };
 

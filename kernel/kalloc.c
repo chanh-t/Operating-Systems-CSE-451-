@@ -107,15 +107,19 @@ void kfree(char *v) {
 
   r = (struct core_map_entry *)pa2page(V2P(v));
 
-  pages_in_use--;
-  free_pages++;
+  r->ref--;
+  if (r->ref <= 0) {
+    pages_in_use--;
+    free_pages++;
 
-  // Fill with junk to catch dangling refs.
-  memset(v, 2, PGSIZE);
+    // Fill with junk to catch dangling refs.
+    memset(v, 2, PGSIZE);
 
-  r->available = 1;
-  r->user = 0;
-  r->va = 0;
+    r->available = 1;
+    r->user = 0;
+    r->va = 0;
+    r->ref = 0;
+  }
   if (kmem.use_lock)
     release(&kmem.lock);
 }
@@ -152,6 +156,7 @@ char *kalloc(void) {
       core_map[i].available = 0;
       pages_in_use++;
       free_pages--;
+      core_map[i].ref = 1;
       if (kmem.use_lock)
         release(&kmem.lock);
       return P2V(page2pa(&core_map[i]));

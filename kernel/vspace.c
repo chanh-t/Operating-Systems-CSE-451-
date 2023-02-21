@@ -473,13 +473,31 @@ copy_vpi_page(struct vpi_page **dst, struct vpi_page *src)
     srcvpi = &src->infos[i];
     dstvpi = &(*dst)->infos[i];
     if (srcvpi->used) {
+      int write = srcvpi->writable;
       dstvpi->used = srcvpi->used;
+      dstvpi->ppn = srcvpi->ppn;
       dstvpi->present = srcvpi->present;
-      dstvpi->writable = srcvpi->writable;
+      dstvpi->writable = 0;
+      srcvpi->writable = 0;
+
+      if (write == VPI_WRITABLE) {
+        dstvpi->copy_on_write = 1;
+        srcvpi->copy_on_write = 1;
+      } else {
+        dstvpi->copy_on_write = 0;
+        srcvpi->copy_on_write = 0;
+      }
+
+      struct core_map_entry* frame = (struct core_map_entry *)pa2page(srcvpi->ppn<<PT_SHIFT);
+      acquire_core_map_lock();
+      frame->ref++;
+      release_core_map_lock();
+      /*
       if (!(data = kalloc()))
         return -1;
       memmove(data, P2V(srcvpi->ppn << PT_SHIFT), PGSIZE);
       dstvpi->ppn = PGNUM(V2P(data));
+      */
     }
   }
 
@@ -499,6 +517,7 @@ vspacecopy(struct vspace *dst, struct vspace *src)
       return -1;
 
   vspaceinvalidate(dst);
+  vspaceinvalidate(srs);
 
   return 0;
 }
