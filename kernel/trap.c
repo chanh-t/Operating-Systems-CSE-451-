@@ -132,6 +132,19 @@ void trap(struct trap_frame *tf) {
       */
     }
 
+    struct vspace* vs = &myproc() -> vspace;
+    struct vregion* vr = &vs -> regions[VR_USTACK]; 
+    uint64_t base = vr -> va_base;
+    uint64_t size = vr -> size;
+    uint64_t bound = base - size;
+    if (addr < SZ_2G && base - PGROUNDDOWN(bound) < 10 * PGSIZE) {
+      if (vregionaddmap(vr, PGROUNDDOWN(bound) - PGSIZE, PGSIZE, VPI_PRESENT, VPI_WRITABLE) >= 0) {
+        vr -> size += PGSIZE;
+        vspaceinvalidate(vs);
+        break;
+      } 
+    }
+
     // Assume process misbehaved.
     cprintf("pid %d %s: trap %d err %d on cpu %d "
             "rip 0x%lx addr 0x%x--kill proc\n",
