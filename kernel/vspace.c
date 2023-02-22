@@ -512,15 +512,11 @@ copy_vpi_page(struct vpi_page **dst, struct vpi_page *src)
       }
 
       struct core_map_entry* frame = (struct core_map_entry *)pa2page(srcvpi->ppn<<PT_SHIFT);
-      acquire_core_map_lock();
+      // if (kmem.use_lock)
+      //   acquire(&kmem.lock);
       frame->ref++;
-      release_core_map_lock();
-      /*
-      if (!(data = kalloc()))
-        return -1;
-      memmove(data, P2V(srcvpi->ppn << PT_SHIFT), PGSIZE);
-      dstvpi->ppn = PGNUM(V2P(data));
-      */
+      // if (kmem.use_lock)
+      //   release(&kmem.lock);
     }
   }
 
@@ -540,7 +536,6 @@ vspacecopy(struct vspace *dst, struct vspace *src)
       return -1;
 
   vspaceinvalidate(dst);
-  vspaceinvalidate(srs);
 
   return 0;
 }

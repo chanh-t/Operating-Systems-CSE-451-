@@ -91,58 +91,61 @@ void trap(struct trap_frame *tf) {
         // that they can write to it?
         if (map->ref > 1 && vpi->copy_on_write == 1 && vpi->writable == 0) {
           char* new_frame = kalloc();
-
-
-
-          acquire_core_map_lock();
+          // if (kmem.use_lock)
+          //   acquire(&kmem.lock);
           memset(new_frame, 0, PGSIZE);
-          memmove(new_frame, P2V(vpi->vpn << PT_SHIFT), PGSIZE);
+          memmove(new_frame, P2V(vpi->ppn << PT_SHIFT), PGSIZE);
           map->ref--;
           vpi->used = 1;
           vpi->ppn = PGNUM(V2P(new_frame));
           vpi->present = 1;
           vpi->writable = 1;
           vpi->copy_on_write = 0;
-          release_core_map_lock():
+          // if (kmem.use_lock)
+          //   release(&kmem.lock);
 
           vspaceinvalidate(&myproc()->vspace);
           vspaceinstall(myproc());
           break;
         } else if (map->ref == 1 && vpi->copy_on_write == 1 && vpi->writable == 0) {
           // since cow = 1, we know it was writable before.
-          acquire_core_map_lock();
+          // if (kmem.use_lock)
+          //   acquire(&kmem.lock);
           vpi->writable = 1;
           vpi->copy_on_write = 0;
 
-          vspaceinstall(&myproc()->vspace);
+          vspaceinvalidate(&myproc()->vspace);
           vspaceinstall(myproc());
-          release_core_map_lock();
+          // if (kmem.use_lock)
+          //   release(&kmem.lock);
           break;
         }
       }
+  
       /*
       num_page_faults += 1;
-
-      if (myproc() == 0 || (tf->cs & 3) == 0) {
-        // In kernel, it must be our mistake.
-        cprintf("unexpected trap %d from cpu %d rip %lx (cr2=0x%x)\n",
-                tf->trapno, cpunum(), tf->rip, addr);
-        panic("trap");
-      }
       */
     }
-
-    struct vspace* vs = &myproc() -> vspace;
-    struct vregion* vr = &vs -> regions[VR_USTACK]; 
-    uint64_t base = vr -> va_base;
-    uint64_t size = vr -> size;
-    uint64_t bound = base - size;
-    if (addr < SZ_2G && base - PGROUNDDOWN(bound) < 10 * PGSIZE) {
-      if (vregionaddmap(vr, PGROUNDDOWN(bound) - PGSIZE, PGSIZE, VPI_PRESENT, VPI_WRITABLE) >= 0) {
-        vr -> size += PGSIZE;
-        vspaceinvalidate(vs);
-        break;
-      } 
+    if (addr < SZ_2G && addr >= SZ_2G - 10 * PGSIZE) {
+      // grow user heap
+      struct vspace* vs = &myproc() -> vspace;
+      struct vregion* vr = &vs -> regions[VR_USTACK]; 
+      uint64_t base = vr -> va_base;
+      uint64_t size = vr -> size;
+      uint64_t bound = base - size;
+      if (addr < SZ_2G && base - PGROUNDDOWN(bound) < 10 * PGSIZE) {
+        if (vregionaddmap(vr, PGROUNDDOWN(bound) - PGSIZE, PGSIZE, VPI_PRESENT, VPI_WRITABLE) >= 0) {
+          vr -> size += PGSIZE;
+          vspaceinvalidate(vs);
+          break;
+        } 
+      }
+    }
+    if (myproc() == 0 || (tf->cs & 3) == 0) {
+      // In kernel, it must be our mistake.
+      cprintf("unexpected trap %d from cpu %d rip %lx (cr2=0x%x)\n",
+              tf->trapno, cpunum(), tf->rip, addr);
+      panic("trap");
     }
 
     // Assume process misbehaved.
