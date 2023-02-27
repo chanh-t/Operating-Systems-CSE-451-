@@ -503,7 +503,7 @@ copy_vpi_page(struct vpi_page **dst, struct vpi_page *src)
       dstvpi->writable = 0;
       srcvpi->writable = 0;
 
-      if (write == VPI_WRITABLE) {
+      if (write == VPI_WRITABLE || srcvpi->copy_on_write == 1) {
         dstvpi->copy_on_write = 1;
         srcvpi->copy_on_write = 1;
       } else {
