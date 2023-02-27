@@ -194,3 +194,14 @@ struct core_map_entry * get_random_user_page() {
   }
   panic("Tried 100 random indices for random user page, all failed");
 }
+
+void acquire_map_lock() {
+  if(kmem.use_lock)
+    acquire(&kmem.lock);
+}
+
+void release_map_lock() {
+  if(kmem.use_lock){
+    release(&kmem.lock);
+  }
+}
