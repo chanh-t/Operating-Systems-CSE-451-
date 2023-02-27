@@ -13,6 +13,12 @@ struct gate_desc idt[256];
 extern void *vectors[]; // in vectors.S: array of 256 entry pointers
 struct spinlock tickslock;
 uint ticks;
+struct kmem_ kmem_3;
+
+struct kmem_ {
+  struct spinlock lock;
+  int use_lock;
+};
 
 int num_page_faults = 0;
 
@@ -25,6 +31,8 @@ void tvinit(void) {
                 USER_PL);
 
   initlock(&tickslock, "time");
+  initlock(&kmem_3.lock, "kmem_3");
+  kmem_3.use_lock = 1;
 }
 
 void idtinit(void) { lidt((void *)idt, sizeof(idt)); }
@@ -82,17 +90,21 @@ void trap(struct trap_frame *tf) {
       struct vregion *vreg;
       struct vpage_info *vpi;
 
-      if((vreg = va2vregion(&myproc()->vspace, addr)) != 0 && (vpi = va2vpage_info(vreg, addr)) != 0 ){
-        
+      // what to do if we write to a 
+      vreg = va2vregion(&myproc()->vspace, addr);
+
+      if(vreg != 0){
+        vpi = va2vpage_info(vreg, addr);
+
         struct core_map_entry* map = (struct core_map_entry *)pa2page(vpi->ppn<<PT_SHIFT);
 
         // cases: cow 1, writable 0 or cow 0, writable 0
         // if ref = 1 after dereference how do we let other process know
         // that they can write to it?
-        if (map->ref > 1 && vpi->copy_on_write == 1 && vpi->writable == 0) {
+        if (map->ref > 1 && vpi->copy_on_write == 1 & vpi->writable == 0) {
           char* new_frame = kalloc();
-          // if (kmem.use_lock)
-          //   acquire(&kmem.lock);
+          if (kmem_3.use_lock)
+            acquire(&kmem_3.lock);
           memset(new_frame, 0, PGSIZE);
           memmove(new_frame, P2V(vpi->ppn << PT_SHIFT), PGSIZE);
           map->ref--;
@@ -101,46 +113,46 @@ void trap(struct trap_frame *tf) {
           vpi->present = 1;
           vpi->writable = 1;
           vpi->copy_on_write = 0;
-          // if (kmem.use_lock)
-          //   release(&kmem.lock);
+          if (kmem_3.use_lock)
+            release(&kmem_3.lock);
 
           vspaceinvalidate(&myproc()->vspace);
           vspaceinstall(myproc());
           break;
         } else if (map->ref == 1 && vpi->copy_on_write == 1 && vpi->writable == 0) {
           // since cow = 1, we know it was writable before.
-          // if (kmem.use_lock)
-          //   acquire(&kmem.lock);
+          if (kmem_3.use_lock)
+            acquire(&kmem_3.lock);
           vpi->writable = 1;
           vpi->copy_on_write = 0;
 
           vspaceinvalidate(&myproc()->vspace);
           vspaceinstall(myproc());
-          // if (kmem.use_lock)
-          //   release(&kmem.lock);
+          if (kmem_3.use_lock)
+            release(&kmem_3.lock);
           break;
         }
       }
-  
-      /*
-      num_page_faults += 1;
-      */
-    }
-    if (addr < SZ_2G && addr >= SZ_2G - 10 * PGSIZE) {
-      // grow user heap
-      struct vspace* vs = &myproc() -> vspace;
-      struct vregion* vr = &vs -> regions[VR_USTACK]; 
-      uint64_t base = vr -> va_base;
-      uint64_t size = vr -> size;
-      uint64_t bound = base - size;
-      if (addr < SZ_2G && base - PGROUNDDOWN(bound) < 10 * PGSIZE) {
-        if (vregionaddmap(vr, PGROUNDDOWN(bound) - PGSIZE, PGSIZE, VPI_PRESENT, VPI_WRITABLE) >= 0) {
-          vr -> size += PGSIZE;
-          vspaceinvalidate(vs);
-          break;
-        } 
+
+      if (addr >= SZ_2G - 10 * PGSIZE && addr < SZ_2G) {
+        // grow user heap
+        struct vspace* vs = &myproc() -> vspace;
+        struct vregion* vr = &vs -> regions[VR_USTACK]; 
+        uint64_t base = vr -> va_base;
+        uint64_t size = vr -> size;
+        uint64_t bound = base - size;
+        if (addr < SZ_2G && base - PGROUNDDOWN(bound) < 10 * PGSIZE) {
+          if (vregionaddmap(vr, PGROUNDDOWN(bound) - PGSIZE, PGSIZE, VPI_PRESENT, VPI_WRITABLE) >= 0) {
+            vr -> size += PGSIZE;
+            vspaceinvalidate(vs);
+            break;
+          } 
+        }
       }
     }
+
+    
+
     if (myproc() == 0 || (tf->cs & 3) == 0) {
       // In kernel, it must be our mistake.
       cprintf("unexpected trap %d from cpu %d rip %lx (cr2=0x%x)\n",
