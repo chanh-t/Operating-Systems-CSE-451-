@@ -512,11 +512,10 @@ copy_vpi_page(struct vpi_page **dst, struct vpi_page *src)
       }
 
       struct core_map_entry* frame = (struct core_map_entry *)pa2page(srcvpi->ppn<<PT_SHIFT);
-      // if (kmem.use_lock)
-      //   acquire(&kmem.lock);
+
+      acquire_map_lock();
       frame->ref++;
-      // if (kmem.use_lock)
-      //   release(&kmem.lock);
+      release_map_lock();
     }
   }
 
