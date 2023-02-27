@@ -478,7 +478,7 @@ vspacecontains(struct vspace *vs, uint64_t va, int size)
 static int
 copy_vpi_page(struct vpi_page **dst, struct vpi_page *src)
 {
-  int i;
+    int i;
   char *data;
   struct vpage_info *srcvpi, *dstvpi;
 
@@ -648,66 +648,3 @@ vspacedumpcode(struct vspace*vs) {
   }
 }
 
-
-// vspacecowcopy(struct vspace *dst, struct vspace *src)
-// {
-//   struct vregion *vr;
-
-//   memmove(dst->regions, src->regions, sizeof(struct vregion) * NREGIONS);
-
-//   for (vr = dst->regions; vr < &dst->regions[NREGIONS]; vr++)
-//     if (cow_copy_vpi_page(&vr->pages, vr->pages) < 0)
-//       return -1;
-
-//   vspaceinvalidate(dst);
-
-//   return 0;
-// }
-
-// static int
-// cow_copy_vpi_page(struct vpi_page **dst, struct vpi_page *src)
-// {
-//   int i;
-//   char *data;
-//   struct vpage_info *srcvpi, *dstvpi;
-
-//   if (!src) {
-//     *dst = 0;
-//     return 0;
-//   }
-
-//   if (!(*dst = (struct vpi_page *)kalloc()))
-//     return -1;
-
-//   memset(*dst, 0, sizeof(struct vpi_page));
-
-//   for (i = 0; i < VPIPPAGE; i++) {
-//     srcvpi = &src->infos[i];
-//     dstvpi = &(*dst)->infos[i];
-//     if (srcvpi->used) {
-//       int write = srcvpi->writable;
-//       dstvpi->used = srcvpi->used;
-//       dstvpi->ppn = srcvpi->ppn;
-//       dstvpi->present = srcvpi->present;
-//       dstvpi->writable = 0;
-//       srcvpi->writable = 0;
-
-//       if (write == VPI_WRITABLE) {
-//         dstvpi->copy_on_write = 1;
-//         srcvpi->copy_on_write = 1;
-//       } else {
-//         dstvpi->copy_on_write = 0;
-//         srcvpi->copy_on_write = 0;
-//       }
-
-//       struct core_map_entry* frame = (struct core_map_entry *)pa2page(srcvpi->ppn<<PT_SHIFT);
-//       // if (kmem.use_lock)
-//       //   acquire(&kmem.lock);
-//       frame->ref++;
-//       // if (kmem.use_lock)
-//       //   release(&kmem.lock);
-//     }
-//   }
-
-//   return copy_vpi_page(&(*dst)->next, src->next);
-// }
