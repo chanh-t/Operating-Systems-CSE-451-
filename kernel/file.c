@@ -218,7 +218,7 @@ int fileclose(int fd)
     }
     if (fpointer->pipe->reader == 0 && fpointer->pipe->writer == 0) {
       release(&fpointer->pipe->lock);
-      kfree((char *)fpointer->pipe);
+      kfree((char *)fpointer->pipe->buffer);
       fpointer -> pipe = NULL;
     } else {
       if (fpointer->pipe->writer == 0) {
