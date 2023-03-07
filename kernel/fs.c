@@ -345,24 +345,12 @@ int readi(struct inode *ip, char *dst, uint off, uint n) {
     return -1;
   if (off + n > ip->size)
     n = ip->size - off;
-  // uint extentnum = 0;
-  // uint extentoff = 0;
-  // for (int i = 0; i < MAXEXTENT; i++) {
-  //   uint extentsize = ip->data[i].nblocks * BSIZE;
-  //   uint cur = off - extentsize;
-  //   if (cur < 0) {
-  //     extentnum = i;
-  //     break;
-  //   }
-  //   extentoff += extentsize;
-  // }
+
   int extentnum = 0;
   int nblocks = off / BSIZE;
   // get current extent and block
-  int count = 0;
   for (int i = 0; i < MAXEXTENT; i++) {
     int curblock = ip->data[i].nblocks;
-    count += 1;
     if ((nblocks - curblock) < 0) {
       extentnum = i; 
       break;
