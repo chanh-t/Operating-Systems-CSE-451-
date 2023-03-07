@@ -433,18 +433,18 @@ int writei(struct inode *ip, char *src, uint off, uint n) {
     bwrite(bp);
     brelse(bp);
     nblocks += 1;
-    if (nblocks > ip->data[extentnum].nblocks) {
+    if (nblocks >= ip->data[extentnum].nblocks) {
       extentnum += 1;
       nblocks = 0;
       if (extentnum > MAXEXTENT - 1) {
         return tot;
       }
-      if (off + m >= ip->size + BSIZE - ip->size % BSIZE) {
+      if (off + m > ip->size) {
         uint blockstoa = (n - tot) / BSIZE + ((n - tot) % BSIZE == 0 ? 0 : 1);
         // blockstoa += 1;
         ip->data[extentnum].startblkno = balloc(ip->dev, blockstoa);
         ip->data[extentnum].nblocks = blockstoa;
-        ip->size += m;
+        ip->size += (off + m) - ip->size;
         struct dinode dip;
         dip.devid = ip->devid;
         dip.size = ip->size;
