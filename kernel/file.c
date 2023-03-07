@@ -32,7 +32,7 @@ int fileopen(char *path, int mode)
     return -1;
 
   locki(inode);
-  if (inode->type != T_DEV && mode != O_RDONLY)
+  if (inode->type != T_DEV && mode != O_RDONLY && mode != O_RDWR)
   {
     unlocki(inode);
     return -1;

@@ -8,6 +8,7 @@
 #define INODEFILEINO 0 // inode file inum
 #define ROOTINO 1      // root i-number
 #define BSIZE 512      // block size
+#define MAXEXTENT 30   // max extents
 
 // Disk layout:
 // [ boot block | super block | free bit map |
@@ -27,8 +28,8 @@ struct dinode {
   short type;         // File type
   short devid;        // Device number (T_DEV only)
   uint size;          // Size of file (bytes)
-  struct extent data; // Data blocks of file on disk
-  char pad[46];       // So disk inodes fit contiguosly in a block
+  struct extent data[MAXEXTENT]; // Data blocks of file on disk
+  char pad[8];       // So disk inodes fit contiguosly in a block
 };
 
 // offset of inode in inodefile

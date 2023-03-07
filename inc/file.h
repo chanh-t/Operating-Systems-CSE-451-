@@ -3,6 +3,8 @@
 #include <extent.h>
 #include <sleeplock.h>
 
+#define MAXEXTENT 30   // max extents
+
 // in-memory copy of an inode
 struct inode {
   uint dev;  // Device number
@@ -14,7 +16,7 @@ struct inode {
   short type; // copy of disk inode
   short devid;
   uint size;
-  struct extent data;
+  struct extent data[MAXEXTENT];
 };
 
 // file 

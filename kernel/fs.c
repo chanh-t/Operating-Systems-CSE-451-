@@ -49,6 +49,7 @@ static void bmark(struct buf *bp, uint start, uint end, bool used)
     }
   }
   bp->flags |= B_DIRTY; // mark our update
+  bwrite(bp);
 }
 
 // Blocks.
@@ -154,8 +155,8 @@ static void init_inodefile(int dev) {
 
   icache.inodefile.devid = di.devid;
   icache.inodefile.size = di.size;
-  icache.inodefile.data = di.data;
-
+  memmove(icache.inodefile.data, di.data, MAXEXTENT * sizeof(struct extent));
+  // icache.inodefile.data = di.data;
   brelse(b);
 }
 
@@ -187,7 +188,17 @@ static void read_dinode(uint inum, struct dinode *dip) {
 
   if (!holding_inodefile_lock)
     unlocki(&icache.inodefile);
+}
 
+static void write_dinode(uint inum, struct dinode *dip) {
+  int holding_inodefile_lock = holdingsleep(&icache.inodefile.lock);
+  if (!holding_inodefile_lock)
+    locki(&icache.inodefile);
+
+  writei(&icache.inodefile, (char *)dip, INODEOFF(inum), sizeof(*dip));
+
+  if (!holding_inodefile_lock)
+    unlocki(&icache.inodefile);
 }
 
 // Find the inode with number inum on device dev
@@ -268,8 +279,7 @@ void locki(struct inode *ip) {
     ip->devid = dip.devid;
 
     ip->size = dip.size;
-    ip->data = dip.data;
-
+    memmove(ip->data, dip.data, sizeof(dip.data));
     ip->valid = 1;
 
     if (ip->type == 0)
@@ -335,12 +345,43 @@ int readi(struct inode *ip, char *dst, uint off, uint n) {
     return -1;
   if (off + n > ip->size)
     n = ip->size - off;
-
+  // uint extentnum = 0;
+  // uint extentoff = 0;
+  // for (int i = 0; i < MAXEXTENT; i++) {
+  //   uint extentsize = ip->data[i].nblocks * BSIZE;
+  //   uint cur = off - extentsize;
+  //   if (cur < 0) {
+  //     extentnum = i;
+  //     break;
+  //   }
+  //   extentoff += extentsize;
+  // }
+  int extentnum = 0;
+  int nblocks = off / BSIZE;
+  // get current extent and block
+  int count = 0;
+  for (int i = 0; i < MAXEXTENT; i++) {
+    int curblock = ip->data[i].nblocks;
+    count += 1;
+    if ((nblocks - curblock) < 0) {
+      extentnum = i; 
+      break;
+    } else {
+      nblocks -= curblock;
+    }
+  }
   for (tot = 0; tot < n; tot += m, off += m, dst += m) {
-    bp = bread(ip->dev, ip->data.startblkno + off / BSIZE);
+    // cprintf("%d\n", extentnum);
+    // cprintf("\n%d\n", n);
+    bp = bread(ip->dev, ip->data[extentnum].startblkno + nblocks);
     m = min(n - tot, BSIZE - off % BSIZE);
     memmove(dst, bp->data + off % BSIZE, m);
     brelse(bp);
+    nblocks += 1;
+    if (nblocks >= ip->data[extentnum].nblocks) {
+      extentnum += 1;
+      nblocks = 0;
+    }
   }
   return n;
 }
@@ -360,6 +401,9 @@ int concurrent_writei(struct inode *ip, char *src, uint off, uint n) {
 // Returns number of bytes written.
 // Caller must hold ip->lock.
 int writei(struct inode *ip, char *src, uint off, uint n) {
+  uint tot, m;
+  struct buf *bp;
+
   if (!holdingsleep(&ip->lock))
     panic("not holding lock");
 
@@ -368,8 +412,50 @@ int writei(struct inode *ip, char *src, uint off, uint n) {
       return -1;
     return devsw[ip->devid].write(ip, src, n);
   }
+  if (off > ip->size || off + n < off)
+    return -1;
+  int extentnum = 0;
+  int nblocks = off/BSIZE;
+  // get current extent and block
+  for (int i = 0; i < MAXEXTENT; i++) {
+    int curblock = ip->data[i].nblocks + 1;
+    if (nblocks-curblock < 0) {
+      extentnum = i; 
+      break;
+    } else {
+      nblocks -= curblock;
+    }
+  }
+  for (tot = 0; tot < n; tot += m, off += m, src += m) {
+    bp = bread(ip->dev, ip->data[extentnum].startblkno + nblocks);
+    m = min(n - tot, BSIZE - off % BSIZE);
+    memmove(bp->data + off % BSIZE, src, m);
+    bwrite(bp);
+    brelse(bp);
+    nblocks += 1;
+    if (nblocks > ip->data[extentnum].nblocks) {
+      extentnum += 1;
+      nblocks = 0;
+      if (extentnum > MAXEXTENT - 1) {
+        return tot;
+      }
+      if (off + m >= ip->size + BSIZE - ip->size % BSIZE) {
+        uint blockstoa = (n - tot) / BSIZE + ((n - tot) % BSIZE == 0 ? 0 : 1);
+        // blockstoa += 1;
+        ip->data[extentnum].startblkno = balloc(ip->dev, blockstoa);
+        ip->data[extentnum].nblocks = blockstoa;
+        ip->size += m;
+        struct dinode dip;
+        dip.devid = ip->devid;
+        dip.size = ip->size;
+        dip.type = ip->type;
+        memmove(dip.data, ip->data, MAXEXTENT*sizeof(struct extent));
+        write_dinode(ip->inum, &dip);
+      }
+    }
+  }
   // read-only fs, writing to inode is an error
-  return -1;
+  return n;
 }
 
 // Directories
