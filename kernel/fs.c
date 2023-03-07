@@ -341,7 +341,7 @@ int readi(struct inode *ip, char *dst, uint off, uint n) {
     return devsw[ip->devid].read(ip, dst, n);
   }
 
-  if (off > ip->size || off + n < off)
+  if (off >= ip->size || off + n < off)
     return -1;
   if (off + n > ip->size)
     n = ip->size - off;
@@ -418,13 +418,28 @@ int writei(struct inode *ip, char *src, uint off, uint n) {
   int nblocks = off/BSIZE;
   // get current extent and block
   for (int i = 0; i < MAXEXTENT; i++) {
-    int curblock = ip->data[i].nblocks + 1;
+    int curblock = ip->data[i].nblocks;
     if (nblocks-curblock < 0) {
       extentnum = i; 
       break;
     } else {
       nblocks -= curblock;
     }
+  }
+  // handle the case when off == ip->size and size is at the end of last block 
+  // which means we need to balloc before hand
+  if (ip->size == off && off % BSIZE == 0) {
+    uint blockstoa = (n) / BSIZE + ((n) % BSIZE == 0 ? 0 : 1);
+    // blockstoa += 1;
+    ip->data[extentnum].startblkno = balloc(ip->dev, blockstoa);
+    ip->data[extentnum].nblocks = blockstoa;
+    ip->size += n;
+    struct dinode dip;
+    dip.devid = ip->devid;
+    dip.size = ip->size;
+    dip.type = ip->type;
+    memmove(dip.data, ip->data, MAXEXTENT*sizeof(struct extent));
+    write_dinode(ip->inum, &dip);
   }
   for (tot = 0; tot < n; tot += m, off += m, src += m) {
     bp = bread(ip->dev, ip->data[extentnum].startblkno + nblocks);
@@ -444,7 +459,7 @@ int writei(struct inode *ip, char *src, uint off, uint n) {
         // blockstoa += 1;
         ip->data[extentnum].startblkno = balloc(ip->dev, blockstoa);
         ip->data[extentnum].nblocks = blockstoa;
-        ip->size += (off + m) - ip->size;
+        ip->size += (off + n) - ip->size;
         struct dinode dip;
         dip.devid = ip->devid;
         dip.size = ip->size;
