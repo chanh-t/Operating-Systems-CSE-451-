@@ -304,6 +304,10 @@ void stati(struct inode *ip, struct stat *st) {
   st->size = ip->size;
 }
 
+int createi() {
+  
+}
+
 // threadsafe readi.
 int concurrent_readi(struct inode *ip, char *dst, uint off, uint n) {
   int retval;
@@ -369,7 +373,45 @@ int writei(struct inode *ip, char *src, uint off, uint n) {
     return devsw[ip->devid].write(ip, src, n);
   }
   // read-only fs, writing to inode is an error
-  return -1;
+  
+  if (n < 0) {
+    return -1;
+  }
+
+  uint bytes_avail = 0;
+  for (int i = 0; i < 10; i++) {
+    bytes_avail += ip->data[i].nblocks * BSIZE;
+  }
+
+  uint append = 0;
+  int can_write = 0;
+  if (off + n > bytes_avail) {
+    append = off + n - bytes_avail;
+    n = off - bytes_avail;
+  }
+
+  uint cur = off % BSIZE;
+  struct buf* buff_ptr;
+  uint to_write = 0;
+  struct extent* data = &ip->data;
+  for (int i = 0; i < n; off += to_write, cur += to_write, i += to_write, src += to_write) {
+    if (cur < data->startblkno * BSIZE) {
+      buff_ptr = bread(ip->dev, ip->data->startblkno+off/BSIZE);
+      to_write = min(n - i, BSIZE - cur % BSIZE);
+      memmove(buff_ptr->data + cur % BSIZE, src, to_write);
+      bwrite(buff_ptr);
+      brelse(buff_ptr);
+    } else {
+      data++;
+      size = 0;
+    }
+  }
+
+  if (append > 0) {
+
+  }
+
+  return n;
 }
 
 // Directories
