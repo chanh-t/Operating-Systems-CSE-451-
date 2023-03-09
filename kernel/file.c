@@ -16,6 +16,11 @@ struct devsw devsw[NDEV];
 struct file_info file_table[NFILE];
 
 static int find_free_fd(int i, struct proc *proc);
+extern struct {
+  struct spinlock lock;
+  struct inode inode[NINODE];
+  struct inode inodefile;
+} icache;
 
 // Finds an open spot in the process open file table and has it point the global open file table entry.
 // Finds an open entry in the global open file table and allocates a new file_info struct
@@ -25,11 +30,26 @@ static int find_free_fd(int i, struct proc *proc);
 // Use the type field to check for a device. See stat.h for possible values.
 // Returns the index into the process open file table as the file descriptor, or -1 on failure.
 int fileopen(char *path, int mode)
-{
+{ 
+  // turnate the string
+  if (strlen(path) > DIRSIZ) {
+    char newpath[DIRSIZ];
+    strncpy(newpath, path, DIRSIZ);
+    path = newpath;
+  }
+  if (mode == O_CREATE|O_RDONLY) {
+      mode = O_RDONLY;
+      createi(path);
+  } else if (mode == O_CREATE|O_RDWR) {
+      mode = O_RDWR;
+      createi(path);
+  } 
   struct inode *inode = namei(path); // returns pointer to inode
   struct proc *proc = myproc();
-  if (inode == NULL)
+  if (inode == NULL) {
+
     return -1;
+  }
 
   locki(inode);
   if (inode->type != T_DEV && mode != O_RDONLY && mode != O_RDWR)
@@ -95,6 +115,63 @@ static int find_free_fd(int i, struct proc *proc)
     return -1;
   }
   return j;
+}
+
+void createi(char *path) {
+  if (namei(path) != NULL) {
+    return;
+  }
+  struct dinode di;
+  struct dirent de;
+  // struct inode* dir = namei((char*)'/');
+  struct inode* dir = &icache.inode[0];
+  struct inode* inodefile = &icache.inodefile;
+  // cprintf("\n%d\n", sizeof(de));
+
+  int inum = 2;
+  for(inum; INODEOFF(inum) <= inodefile->size; inum++) {
+    if (INODEOFF(inum) == inodefile->size) {
+      concurrent_writei(inodefile, (char*)&di, INODEOFF(inum), sizeof(di));
+    }
+    concurrent_readi(inodefile, (char *)&di, INODEOFF(inum), sizeof(di));
+    if (di.size == 0 && di.type == 0) {
+      di.size = 0;
+      di.devid = T_DEV;
+      di.type = T_FILE;
+      // write the dinode to the file
+      concurrent_writei(inodefile, (char*)&di, INODEOFF(inum), sizeof(di));
+      for (int off = 0; off <= dir->size; off+=sizeof(de)) {
+        if (off == dir->size) {
+          concurrent_writei(dir, (char*)&de, off, sizeof(de));
+        }
+        concurrent_readi(dir, (char *)&de, off, sizeof(de));
+        if (de.inum == 0) {
+          de.inum = inum;
+          strncpy(de.name, path, strlen(path));
+          concurrent_writei(dir, (char*)&de, off, sizeof(de));
+          break;
+        }
+      }
+      break;
+    }
+  }
+  // if (hole == 0) {
+  //   di.size = 0;
+  //   di.devid = T_DEV;
+  //   di.type = T_FILE;
+  //   concurrent_writei(inodefile, (char*)&di, INODEOFF(inum), sizeof(di));
+  //   cprintf("%d", dir->size);
+  //   dir->size += sizeof(de);
+  //   for (int off = 0; off < dir->size; off+=sizeof(de)) {
+  //     concurrent_readi(dir, (char *)&de, off, sizeof(de));
+  //     if (de.inum == 0) {
+  //       de.inum = inum;
+  //       strncpy(de.name, path, strlen(path));
+  //       concurrent_writei(dir, (char*)&de, off, sizeof(de));
+  //       break;
+  //     }
+  //   }
+  // }
 }
 
 int fileread(char *src, int fd, int n)

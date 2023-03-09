@@ -430,6 +430,19 @@ int writei(struct inode *ip, char *src, uint off, uint n) {
     write_dinode(ip->inum, &dip);
   }
   for (tot = 0; tot < n; tot += m, off += m, src += m) {
+    // if (off >= ip->size) {
+    //   uint blockstoa = (n - tot) / BSIZE + ((n - tot) % BSIZE == 0 ? 0 : 1);
+    //   // blockstoa += 1;
+    //   ip->data[extentnum].startblkno = balloc(ip->dev, blockstoa);
+    //   ip->data[extentnum].nblocks = blockstoa;
+    //   ip->size += (off + n) - tot;
+    //   struct dinode dip;
+    //   dip.devid = ip->devid;
+    //   dip.size = ip->size;
+    //   dip.type = ip->type;
+    //   memmove(dip.data, ip->data, MAXEXTENT*sizeof(struct extent));
+    //   write_dinode(ip->inum, &dip);
+    // }
     bp = bread(ip->dev, ip->data[extentnum].startblkno + nblocks);
     m = min(n - tot, BSIZE - off % BSIZE);
     memmove(bp->data + off % BSIZE, src, m);
@@ -440,23 +453,34 @@ int writei(struct inode *ip, char *src, uint off, uint n) {
       extentnum += 1;
       nblocks = 0;
       if (extentnum > MAXEXTENT - 1) {
-        return tot;
+        return tot + m;
       }
-      if (off + m > ip->size) {
-        uint blockstoa = (n - tot) / BSIZE + ((n - tot) % BSIZE == 0 ? 0 : 1);
-        // blockstoa += 1;
-        ip->data[extentnum].startblkno = balloc(ip->dev, blockstoa);
-        ip->data[extentnum].nblocks = blockstoa;
-        ip->size += (off + n) - ip->size;
-        struct dinode dip;
-        dip.devid = ip->devid;
-        dip.size = ip->size;
-        dip.type = ip->type;
-        memmove(dip.data, ip->data, MAXEXTENT*sizeof(struct extent));
-        write_dinode(ip->inum, &dip);
+      if (off + m >= ip->size) {
+        uint blockstoa = (n - tot ) / BSIZE + ((n - tot) % BSIZE == 0 ? 0 : 1);
+        if (blockstoa == 0) {
+          ip->size += (off + m + n) - tot - ip->size;
+          struct dinode dip;
+          dip.devid = ip->devid;
+          dip.size = ip->size;
+          dip.type = ip->type;
+          memmove(dip.data, ip->data, MAXEXTENT*sizeof(struct extent));
+          write_dinode(ip->inum, &dip);
+        } else {
+          // blockstoa += 1;
+          ip->data[extentnum].startblkno = balloc(ip->dev, blockstoa);
+          ip->data[extentnum].nblocks = blockstoa;
+          ip->size += (off + m + n) - tot - ip->size;
+          struct dinode dip;
+          dip.devid = ip->devid;
+          dip.size = ip->size;
+          dip.type = ip->type;
+          memmove(dip.data, ip->data, MAXEXTENT*sizeof(struct extent));
+          write_dinode(ip->inum, &dip);
+        }
       }
     }
   }
+
   // read-only fs, writing to inode is an error
   return n;
 }
