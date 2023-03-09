@@ -43,11 +43,10 @@ int fileopen(char *path, int mode)
   } else if (mode == O_CREATE|O_RDWR) {
       mode = O_RDWR;
       createi(path);
-  } 
+  }
   struct inode *inode = namei(path); // returns pointer to inode
   struct proc *proc = myproc();
   if (inode == NULL) {
-
     return -1;
   }
 
@@ -123,31 +122,32 @@ void createi(char *path) {
   }
   struct dinode di;
   struct dirent de;
-  // struct inode* dir = namei((char*)'/');
   struct inode* dir = &icache.inode[0];
   struct inode* inodefile = &icache.inodefile;
-  // cprintf("\n%d\n", sizeof(de));
 
   int inum = 2;
   for(inum; INODEOFF(inum) <= inodefile->size; inum++) {
-    if (INODEOFF(inum) == inodefile->size) {
-      concurrent_writei(inodefile, (char*)&di, INODEOFF(inum), sizeof(di));
-    }
+    if (INODEOFF(inum) != inodefile->size) {
     concurrent_readi(inodefile, (char *)&di, INODEOFF(inum), sizeof(di));
-    if (di.size == 0 && di.type == 0) {
+    }
+    if ((di.size == 0 && di.type == 0) || INODEOFF(inum) == inodefile->size) {
       di.size = 0;
       di.devid = T_DEV;
       di.type = T_FILE;
+      for (int i = 0; i < MAXEXTENT; i++) {
+        di.data[i].nblocks = 0;
+        di.data[i].startblkno = 0;
+      }
       // write the dinode to the file
       concurrent_writei(inodefile, (char*)&di, INODEOFF(inum), sizeof(di));
       for (int off = 0; off <= dir->size; off+=sizeof(de)) {
-        if (off == dir->size) {
-          concurrent_writei(dir, (char*)&de, off, sizeof(de));
+        if (off != dir->size) {
+          concurrent_readi(dir, (char *)&de, off, sizeof(de));
         }
-        concurrent_readi(dir, (char *)&de, off, sizeof(de));
-        if (de.inum == 0) {
+        if (de.inum == 0 || off==dir->size) {
           de.inum = inum;
           strncpy(de.name, path, strlen(path));
+          de.name[strlen(path)] = '\0';
           concurrent_writei(dir, (char*)&de, off, sizeof(de));
           break;
         }
@@ -155,23 +155,6 @@ void createi(char *path) {
       break;
     }
   }
-  // if (hole == 0) {
-  //   di.size = 0;
-  //   di.devid = T_DEV;
-  //   di.type = T_FILE;
-  //   concurrent_writei(inodefile, (char*)&di, INODEOFF(inum), sizeof(di));
-  //   cprintf("%d", dir->size);
-  //   dir->size += sizeof(de);
-  //   for (int off = 0; off < dir->size; off+=sizeof(de)) {
-  //     concurrent_readi(dir, (char *)&de, off, sizeof(de));
-  //     if (de.inum == 0) {
-  //       de.inum = inum;
-  //       strncpy(de.name, path, strlen(path));
-  //       concurrent_writei(dir, (char*)&de, off, sizeof(de));
-  //       break;
-  //     }
-  //   }
-  // }
 }
 
 int fileread(char *src, int fd, int n)
