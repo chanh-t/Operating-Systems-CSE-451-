@@ -37,10 +37,10 @@ int fileopen(char *path, int mode)
     strncpy(newpath, path, DIRSIZ);
     path = newpath;
   }
-  if (mode == O_CREATE|O_RDONLY) {
+  if (mode == (O_CREATE|O_RDONLY)) {
       mode = O_RDONLY;
       createi(path);
-  } else if (mode == O_CREATE|O_RDWR) {
+  } else if (mode == (O_CREATE|O_RDWR)) {
       mode = O_RDWR;
       createi(path);
   }
@@ -117,7 +117,9 @@ static int find_free_fd(int i, struct proc *proc)
 }
 
 void createi(char *path) {
-  if (namei(path) != NULL) {
+  struct inode * inode = namei(path);
+  if (inode != NULL) {
+    inode->ref -= 1;
     return;
   }
   struct dinode di;
@@ -128,11 +130,11 @@ void createi(char *path) {
   int inum = 2;
   for(inum; INODEOFF(inum) <= inodefile->size; inum++) {
     if (INODEOFF(inum) != inodefile->size) {
-    concurrent_readi(inodefile, (char *)&di, INODEOFF(inum), sizeof(di));
+      concurrent_readi(inodefile, (char *)&di, INODEOFF(inum), sizeof(di));
     }
     if ((di.size == 0 && di.type == 0) || INODEOFF(inum) == inodefile->size) {
       di.size = 0;
-      di.devid = T_DEV;
+      di.devid = ROOTDEV;// T_DEV?
       di.type = T_FILE;
       for (int i = 0; i < MAXEXTENT; i++) {
         di.data[i].nblocks = 0;
@@ -427,3 +429,43 @@ int filepipe(int* fds) {
   release(&pipe->lock);
   return 0;
 }
+
+// int fileunlink(char* path) {
+//   struct inode * inode = namei(path);
+//   if (inode == NULL) {
+//     return -1;
+//   } else if (inode->type == T_DEV || inode->type == T_DIR || inode->ref > 0) {
+//     return -1;
+//   }
+//   cprintf("1");
+//   locki(inode);
+//   struct inode* dir = &icache.inode[0];
+//   struct inode* inodefile = &icache.inodefile;
+//   struct dinode di;
+//   struct dirent de;
+//   // de.inum = 0;
+//   // concurrent_readi(inodefile, &di, INODEOFF(inode->inum), sizeof(di));
+//   for (int i = 0; i < MAXEXTENT; i++) {
+//     if (inode->data[i].nblocks == 0) {
+//       break;
+//     }
+//     bfree(inode->dev, inode->data[i].startblkno, inode->data[i].nblocks);
+//   }
+//   di.size = 0;
+//   di.devid = 0;
+//   di.type = 0;
+//   for (int i = 0; i < MAXEXTENT; i++) {
+//     di.data[i].nblocks = 0;
+//     di.data[i].startblkno = 0;
+//   } 
+//   concurrent_writei(inodefile, &di, INODEOFF(inode->inum), sizeof(di));
+//   for (int off = 0; off < dir->size; off+=sizeof(de)) {
+//     concurrent_readi(dir, &de, off, sizeof(de));
+//     if (de.inum == inode->inum) {
+//       de.inum = 0;
+//       concurrent_writei(dir, &de, off, sizeof(de));
+//     }
+//   }
+//   unlocki(inode);
+//   return 0;
+// }

@@ -578,3 +578,57 @@ struct inode *nameiparent(char *path, char *name) {
   return namex(path, 1, name);
 }
 
+int fileunlink(char* path) {
+  struct inode * inode = namei(path);
+  if (inode == NULL) {
+    return -1;
+  } else if (inode->type == T_DEV || inode->type == T_DIR) {
+    return -1;
+  }
+  inode->ref -= 1;
+  if (inode->ref > 0) {
+    return -1;
+  }
+  // if (holdingsleep(&inode->lock)) {
+  //   cprintf("2");
+  //   unlocki(inode);
+  // }
+  inode->ref += 1;
+  locki(inode);
+  struct inode* dir = &icache.inode[0];
+  struct inode* inodefile = &icache.inodefile;
+  struct dinode di;
+  struct dirent de;
+  // de.inum = 0;
+  // concurrent_readi(inodefile, &di, INODEOFF(inode->inum), sizeof(di));
+  for (int i = 0; i < MAXEXTENT; i++) {
+    if (inode->data[i].nblocks == 0) {
+      break;
+    }
+    bfree(inode->dev, inode->data[i].startblkno, inode->data[i].nblocks);
+  }
+  di.size = 0;
+  di.devid = 0;
+  di.type = 0;
+  for (int i = 0; i < MAXEXTENT; i++) {
+    di.data[i].nblocks = 0;
+    di.data[i].startblkno = 0;
+  } 
+  concurrent_writei(inodefile, &di, INODEOFF(inode->inum), sizeof(di));
+  for (int off = 0; off < dir->size; off+=sizeof(de)) {
+    concurrent_readi(dir, &de, off, sizeof(de));
+    if (de.inum == inode->inum) {
+      de.inum = 0;
+      memmove(de.name, 0, DIRSIZ);
+      concurrent_writei(dir, &de, off, sizeof(de));
+    }
+  }
+  // inode->dev=0;
+  // inode->inum = 0;
+  // inode->size = 0;
+  // inode->valid =0;
+  // inode->type=0;
+  unlocki(inode);
+  inode->ref -= 1;
+  return 0;
+}
