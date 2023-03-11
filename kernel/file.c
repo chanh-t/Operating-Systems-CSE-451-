@@ -43,6 +43,9 @@ int fileopen(char *path, int mode)
   } else if (mode == (O_CREATE|O_RDWR)) {
       mode = O_RDWR;
       createi(path);
+  } else if (mode == (O_CREATE|O_WRONLY)) {
+      mode = O_WRONLY;
+      createi(path);
   }
   struct inode *inode = namei(path); // returns pointer to inode
   struct proc *proc = myproc();
@@ -51,7 +54,7 @@ int fileopen(char *path, int mode)
   }
 
   locki(inode);
-  if (inode->type != T_DEV && mode != O_RDONLY && mode != O_RDWR)
+  if (inode->type != T_DEV && mode != O_RDONLY && mode != O_RDWR && mode != O_WRONLY)
   {
     unlocki(inode);
     return -1;
@@ -126,11 +129,12 @@ void createi(char *path) {
   struct dirent de;
   struct inode* dir = &icache.inode[0];
   struct inode* inodefile = &icache.inodefile;
-
+  locki(inodefile);
+  locki(dir);
   int inum = 2;
   for(inum; INODEOFF(inum) <= inodefile->size; inum++) {
     if (INODEOFF(inum) != inodefile->size) {
-      concurrent_readi(inodefile, (char *)&di, INODEOFF(inum), sizeof(di));
+      readi(inodefile, (char *)&di, INODEOFF(inum), sizeof(di));
     }
     if ((di.size == 0 && di.type == 0) || INODEOFF(inum) == inodefile->size) {
       di.size = 0;
@@ -141,22 +145,24 @@ void createi(char *path) {
         di.data[i].startblkno = 0;
       }
       // write the dinode to the file
-      concurrent_writei(inodefile, (char*)&di, INODEOFF(inum), sizeof(di));
+      writei(inodefile, (char*)&di, INODEOFF(inum), sizeof(di));
       for (int off = 0; off <= dir->size; off+=sizeof(de)) {
         if (off != dir->size) {
-          concurrent_readi(dir, (char *)&de, off, sizeof(de));
+          readi(dir, (char *)&de, off, sizeof(de));
         }
         if (de.inum == 0 || off==dir->size) {
           de.inum = inum;
           strncpy(de.name, path, strlen(path));
           de.name[strlen(path)] = '\0';
-          concurrent_writei(dir, (char*)&de, off, sizeof(de));
+          writei(dir, (char*)&de, off, sizeof(de));
           break;
         }
       }
       break;
     }
   }
+  unlocki(inodefile);
+  unlocki(dir);
 }
 
 int fileread(char *src, int fd, int n)

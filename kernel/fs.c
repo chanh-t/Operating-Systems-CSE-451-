@@ -341,7 +341,7 @@ int readi(struct inode *ip, char *dst, uint off, uint n) {
     return devsw[ip->devid].read(ip, dst, n);
   }
 
-  if (off >= ip->size || off + n < off)
+  if (off > ip->size || off + n < off)
     return -1;
   if (off + n > ip->size)
     n = ip->size - off;
@@ -583,16 +583,13 @@ int fileunlink(char* path) {
   if (inode == NULL) {
     return -1;
   } else if (inode->type == T_DEV || inode->type == T_DIR) {
+    inode->ref -= 1;
     return -1;
   }
   inode->ref -= 1;
   if (inode->ref > 0) {
     return -1;
   }
-  // if (holdingsleep(&inode->lock)) {
-  //   cprintf("2");
-  //   unlocki(inode);
-  // }
   inode->ref += 1;
   locki(inode);
   struct inode* dir = &icache.inode[0];
