@@ -104,8 +104,11 @@ main(int argc, char *argv[])
 
   sb.size = xint(FSSIZE);
   sb.nblocks = xint(nblocks);
-  sb.bmapstart = xint(2);
-  sb.inodestart = xint(2+nbitmap);
+  // sb.logstart =  xint(2);
+  // sb.bmapstart = xint(3 + LOGSIZE);
+  // sb.inodestart = xint(3 + nbitmap + LOGSIZE);
+  sb.bmapstart =  xint(2);
+  sb.inodestart = xint(2 + nbitmap);
 
   printf("nmeta %d (boot, super, bitmap blocks %u) blocks %d total %d\n",
        nmeta, nbitmap, nblocks, FSSIZE);

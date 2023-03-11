@@ -64,12 +64,13 @@ int fileopen(char *path, int mode)
   int fd = 0;
   while (i < NFILE)
   {
-    acquiresleep(&file_table[i].lock);
     if (file_table[i].inode_ptr == 0x0 &&
         file_table[i].mode == 0 &&
         file_table[i].offset == 0 &&
         file_table[i].ref == 0)
     {
+      initsleeplock(&file_table[i].lock, "file");
+      acquiresleep(&file_table[i].lock);
       file_table[i].inode_ptr = inode;
       file_table[i].mode = mode;
       file_table[i].offset = 0;

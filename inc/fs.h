@@ -19,6 +19,7 @@
 struct superblock {
   uint size;       // Size of file system image (blocks)
   uint nblocks;    // Number of data blocks
+  // uint logstart;
   uint bmapstart;  // Block number of first free map block
   uint inodestart; // Block number of the start of inode file
 };
