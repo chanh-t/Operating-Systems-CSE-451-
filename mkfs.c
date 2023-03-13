@@ -352,13 +352,24 @@ iappend(uint inum, void *xp, int n)
   winode(inum, &din);
 }
 
-void log_commit_tx() {
+begin_tx() {
+  // need lock here
+  struct buf *log = bread(ROOTDEV, sb.logstart);
+  struct commit cb = 0;
+  memset(log->data, 0, LOGSIZE * BSIZE); // zero out data, probably unecessary
+  memmove(&cb, commit_buf->data, BSIZE);
+  brelse(commit_buf);
+}
+void commit_tx() {
   // we need some sort of lock first?
 
   struct buf *commit_buf = bread(ROOTDEV, sb.logstart);
   struct commit_block cb;
   memmove(&cb, commit_buf->data, BSIZE);
   brelse(commit_buf);
+}
 
+// log_write will write to the log region instead
+void log_write() {
 
 }
