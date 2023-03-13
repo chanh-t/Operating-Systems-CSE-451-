@@ -16,6 +16,11 @@ struct devsw devsw[NDEV];
 struct file_info file_table[NFILE];
 
 static int find_free_fd(int i, struct proc *proc);
+extern struct {
+  struct spinlock lock;
+  struct inode inode[NINODE];
+  struct inode inodefile;
+} icache;
 
 // Finds an open spot in the process open file table and has it point the global open file table entry.
 // Finds an open entry in the global open file table and allocates a new file_info struct
@@ -25,14 +30,31 @@ static int find_free_fd(int i, struct proc *proc);
 // Use the type field to check for a device. See stat.h for possible values.
 // Returns the index into the process open file table as the file descriptor, or -1 on failure.
 int fileopen(char *path, int mode)
-{
+{ 
+  // turnate the string
+  if (strlen(path) > DIRSIZ) {
+    char newpath[DIRSIZ];
+    strncpy(newpath, path, DIRSIZ);
+    path = newpath;
+  }
+  if (mode == (O_CREATE|O_RDONLY)) {
+      mode = O_RDONLY;
+      createi(path);
+  } else if (mode == (O_CREATE|O_RDWR)) {
+      mode = O_RDWR;
+      createi(path);
+  } else if (mode == (O_CREATE|O_WRONLY)) {
+      mode = O_WRONLY;
+      createi(path);
+  }
   struct inode *inode = namei(path); // returns pointer to inode
   struct proc *proc = myproc();
-  if (inode == NULL)
+  if (inode == NULL) {
     return -1;
+  }
 
   locki(inode);
-  if (inode->type != T_DEV && mode != O_RDONLY)
+  if (inode->type != T_DEV && mode != O_RDONLY && mode != O_RDWR && mode != O_WRONLY)
   {
     unlocki(inode);
     return -1;
@@ -42,12 +64,13 @@ int fileopen(char *path, int mode)
   int fd = 0;
   while (i < NFILE)
   {
-    acquiresleep(&file_table[i].lock);
     if (file_table[i].inode_ptr == 0x0 &&
         file_table[i].mode == 0 &&
         file_table[i].offset == 0 &&
         file_table[i].ref == 0)
     {
+      initsleeplock(&file_table[i].lock, "file");
+      acquiresleep(&file_table[i].lock);
       file_table[i].inode_ptr = inode;
       file_table[i].mode = mode;
       file_table[i].offset = 0;
@@ -95,6 +118,52 @@ static int find_free_fd(int i, struct proc *proc)
     return -1;
   }
   return j;
+}
+
+void createi(char *path) {
+  struct inode * inode = namei(path);
+  if (inode != NULL) {
+    inode->ref -= 1;
+    return;
+  }
+  struct dinode di;
+  struct dirent de;
+  struct inode* dir = &icache.inode[0];
+  struct inode* inodefile = &icache.inodefile;
+  locki(inodefile);
+  locki(dir);
+  int inum = 2;
+  for(inum; INODEOFF(inum) <= inodefile->size; inum++) {
+    if (INODEOFF(inum) != inodefile->size) {
+      readi(inodefile, (char *)&di, INODEOFF(inum), sizeof(di));
+    }
+    if ((di.size == 0 && di.type == 0) || INODEOFF(inum) == inodefile->size) {
+      di.size = 0;
+      di.devid = ROOTDEV;// T_DEV?
+      di.type = T_FILE;
+      for (int i = 0; i < MAXEXTENT; i++) {
+        di.data[i].nblocks = 0;
+        di.data[i].startblkno = 0;
+      }
+      // write the dinode to the file
+      writei(inodefile, (char*)&di, INODEOFF(inum), sizeof(di));
+      for (int off = 0; off <= dir->size; off+=sizeof(de)) {
+        if (off != dir->size) {
+          readi(dir, (char *)&de, off, sizeof(de));
+        }
+        if (de.inum == 0 || off==dir->size) {
+          de.inum = inum;
+          strncpy(de.name, path, strlen(path));
+          de.name[strlen(path)] = '\0';
+          writei(dir, (char*)&de, off, sizeof(de));
+          break;
+        }
+      }
+      break;
+    }
+  }
+  unlocki(inodefile);
+  unlocki(dir);
 }
 
 int fileread(char *src, int fd, int n)
@@ -218,7 +287,7 @@ int fileclose(int fd)
     }
     if (fpointer->pipe->reader == 0 && fpointer->pipe->writer == 0) {
       release(&fpointer->pipe->lock);
-      kfree((char *)fpointer->pipe);
+      kfree((char *)fpointer->pipe->buffer);
       fpointer -> pipe = NULL;
     } else {
       if (fpointer->pipe->writer == 0) {
@@ -367,3 +436,43 @@ int filepipe(int* fds) {
   release(&pipe->lock);
   return 0;
 }
+
+// int fileunlink(char* path) {
+//   struct inode * inode = namei(path);
+//   if (inode == NULL) {
+//     return -1;
+//   } else if (inode->type == T_DEV || inode->type == T_DIR || inode->ref > 0) {
+//     return -1;
+//   }
+//   cprintf("1");
+//   locki(inode);
+//   struct inode* dir = &icache.inode[0];
+//   struct inode* inodefile = &icache.inodefile;
+//   struct dinode di;
+//   struct dirent de;
+//   // de.inum = 0;
+//   // concurrent_readi(inodefile, &di, INODEOFF(inode->inum), sizeof(di));
+//   for (int i = 0; i < MAXEXTENT; i++) {
+//     if (inode->data[i].nblocks == 0) {
+//       break;
+//     }
+//     bfree(inode->dev, inode->data[i].startblkno, inode->data[i].nblocks);
+//   }
+//   di.size = 0;
+//   di.devid = 0;
+//   di.type = 0;
+//   for (int i = 0; i < MAXEXTENT; i++) {
+//     di.data[i].nblocks = 0;
+//     di.data[i].startblkno = 0;
+//   } 
+//   concurrent_writei(inodefile, &di, INODEOFF(inode->inum), sizeof(di));
+//   for (int off = 0; off < dir->size; off+=sizeof(de)) {
+//     concurrent_readi(dir, &de, off, sizeof(de));
+//     if (de.inum == inode->inum) {
+//       de.inum = 0;
+//       concurrent_writei(dir, &de, off, sizeof(de));
+//     }
+//   }
+//   unlocki(inode);
+//   return 0;
+// }

@@ -49,6 +49,7 @@ static void bmark(struct buf *bp, uint start, uint end, bool used)
     }
   }
   bp->flags |= B_DIRTY; // mark our update
+  bwrite(bp);
 }
 
 // Blocks.
@@ -154,8 +155,8 @@ static void init_inodefile(int dev) {
 
   icache.inodefile.devid = di.devid;
   icache.inodefile.size = di.size;
-  icache.inodefile.data = di.data;
-
+  memmove(icache.inodefile.data, di.data, MAXEXTENT * sizeof(struct extent));
+  // icache.inodefile.data = di.data;
   brelse(b);
 }
 
@@ -187,7 +188,17 @@ static void read_dinode(uint inum, struct dinode *dip) {
 
   if (!holding_inodefile_lock)
     unlocki(&icache.inodefile);
+}
 
+static void write_dinode(uint inum, struct dinode *dip) {
+  int holding_inodefile_lock = holdingsleep(&icache.inodefile.lock);
+  if (!holding_inodefile_lock)
+    locki(&icache.inodefile);
+
+  writei(&icache.inodefile, (char *)dip, INODEOFF(inum), sizeof(*dip));
+
+  if (!holding_inodefile_lock)
+    unlocki(&icache.inodefile);
 }
 
 // Find the inode with number inum on device dev
@@ -268,8 +279,7 @@ void locki(struct inode *ip) {
     ip->devid = dip.devid;
 
     ip->size = dip.size;
-    ip->data = dip.data;
-
+    memmove(ip->data, dip.data, sizeof(dip.data));
     ip->valid = 1;
 
     if (ip->type == 0)
@@ -340,11 +350,28 @@ int readi(struct inode *ip, char *dst, uint off, uint n) {
   if (off + n > ip->size)
     n = ip->size - off;
 
+  int extentnum = 0;
+  int nblocks = off / BSIZE;
+  // get current extent and block
+  for (int i = 0; i < MAXEXTENT; i++) {
+    int curblock = ip->data[i].nblocks;
+    if ((nblocks - curblock) < 0) {
+      extentnum = i; 
+      break;
+    } else {
+      nblocks -= curblock;
+    }
+  }
   for (tot = 0; tot < n; tot += m, off += m, dst += m) {
-    bp = bread(ip->dev, ip->data.startblkno + off / BSIZE);
+    bp = bread(ip->dev, ip->data[extentnum].startblkno + nblocks);
     m = min(n - tot, BSIZE - off % BSIZE);
     memmove(dst, bp->data + off % BSIZE, m);
     brelse(bp);
+    nblocks += 1;
+    if (nblocks >= ip->data[extentnum].nblocks) {
+      extentnum += 1;
+      nblocks = 0;
+    }
   }
   return n;
 }
@@ -364,6 +391,9 @@ int concurrent_writei(struct inode *ip, char *src, uint off, uint n) {
 // Returns number of bytes written.
 // Caller must hold ip->lock.
 int writei(struct inode *ip, char *src, uint off, uint n) {
+  uint tot, m;
+  struct buf *bp;
+
   if (!holdingsleep(&ip->lock))
     panic("not holding lock");
 
@@ -372,45 +402,59 @@ int writei(struct inode *ip, char *src, uint off, uint n) {
       return -1;
     return devsw[ip->devid].write(ip, src, n);
   }
-  // read-only fs, writing to inode is an error
-  
-  if (n < 0) {
+  if (off > ip->size || off + n < off)
     return -1;
-  }
-
-  uint bytes_avail = 0;
-  for (int i = 0; i < 10; i++) {
-    bytes_avail += ip->data[i].nblocks * BSIZE;
-  }
-
-  uint append = 0;
-  int can_write = 0;
-  if (off + n > bytes_avail) {
-    append = off + n - bytes_avail;
-    n = off - bytes_avail;
-  }
-
-  uint cur = off % BSIZE;
-  struct buf* buff_ptr;
-  uint to_write = 0;
-  struct extent* data = &ip->data;
-  for (int i = 0; i < n; off += to_write, cur += to_write, i += to_write, src += to_write) {
-    if (cur < data->startblkno * BSIZE) {
-      buff_ptr = bread(ip->dev, ip->data->startblkno+off/BSIZE);
-      to_write = min(n - i, BSIZE - cur % BSIZE);
-      memmove(buff_ptr->data + cur % BSIZE, src, to_write);
-      bwrite(buff_ptr);
-      brelse(buff_ptr);
+  int actualblocks = 0;
+  int blockstoa = (off + n) / BSIZE + ((off + n) % BSIZE == 0 ? 0 : 1);
+  int extentnum = 0;
+  int nblocks = off/BSIZE;
+  for (int i = 0; i < MAXEXTENT; i++) {
+    if (ip->data[i].nblocks == 0) {
+      extentnum = i;
+      break;
     } else {
-      data++;
-      size = 0;
+      actualblocks += ip->data[i].nblocks;
     }
   }
-
-  if (append > 0) {
-
+  if (off + n > ip->size) {
+    if (blockstoa - actualblocks > 0) {
+      ip->data[extentnum].startblkno = balloc(ip->dev, (blockstoa - actualblocks));
+      ip->data[extentnum].nblocks = (blockstoa - actualblocks);
+    }
+    ip->size = off + n;
+    struct dinode dip;
+    dip.devid = ip->devid;
+    dip.size = ip->size;
+    dip.type = ip->type;
+    memmove(dip.data, ip->data, MAXEXTENT*sizeof(struct extent));
+    write_dinode(ip->inum, &dip);
   }
-
+  // get current extent and block
+  for (int i = 0; i < MAXEXTENT; i++) {
+    int curblock = ip->data[i].nblocks;
+    if (nblocks-curblock < 0) {
+      extentnum = i; 
+      break;
+    } else {
+      nblocks -= curblock;
+    }
+  }
+  for (tot = 0; tot < n; tot += m, off += m, src += m) {
+    bp = bread(ip->dev, ip->data[extentnum].startblkno + nblocks);
+    m = min(n - tot, BSIZE - off % BSIZE);
+    memmove(bp->data + off % BSIZE, src, m);
+    bwrite(bp);
+    brelse(bp);
+    nblocks += 1;
+    if (nblocks >= ip->data[extentnum].nblocks) {
+      extentnum += 1;
+      nblocks = 0;
+      if (extentnum > MAXEXTENT - 1) {
+        return tot + m;
+      }
+    }
+  }
+  // read-only fs, writing to inode is an error
   return n;
 }
 
@@ -538,3 +582,54 @@ struct inode *nameiparent(char *path, char *name) {
   return namex(path, 1, name);
 }
 
+int fileunlink(char* path) {
+  struct inode * inode = namei(path);
+  if (inode == NULL) {
+    return -1;
+  } else if (inode->type == T_DEV || inode->type == T_DIR) {
+    inode->ref -= 1;
+    return -1;
+  }
+  inode->ref -= 1;
+  if (inode->ref > 0) {
+    return -1;
+  }
+  inode->ref += 1;
+  locki(inode);
+  struct inode* dir = &icache.inode[0];
+  struct inode* inodefile = &icache.inodefile;
+  struct dinode di;
+  struct dirent de;
+  // de.inum = 0;
+  // concurrent_readi(inodefile, &di, INODEOFF(inode->inum), sizeof(di));
+  for (int i = 0; i < MAXEXTENT; i++) {
+    if (inode->data[i].nblocks == 0) {
+      break;
+    }
+    bfree(inode->dev, inode->data[i].startblkno, inode->data[i].nblocks);
+  }
+  di.size = 0;
+  di.devid = 0;
+  di.type = 0;
+  for (int i = 0; i < MAXEXTENT; i++) {
+    di.data[i].nblocks = 0;
+    di.data[i].startblkno = 0;
+  } 
+  concurrent_writei(inodefile, &di, INODEOFF(inode->inum), sizeof(di));
+  for (int off = 0; off < dir->size; off+=sizeof(de)) {
+    concurrent_readi(dir, &de, off, sizeof(de));
+    if (de.inum == inode->inum) {
+      de.inum = 0;
+      memmove(de.name, 0, DIRSIZ);
+      concurrent_writei(dir, &de, off, sizeof(de));
+    }
+  }
+  // inode->dev=0;
+  // inode->inum = 0;
+  // inode->size = 0;
+  // inode->valid =0;
+  // inode->type=0;
+  unlocki(inode);
+  inode->ref -= 1;
+  return 0;
+}

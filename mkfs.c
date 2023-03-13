@@ -104,8 +104,9 @@ main(int argc, char *argv[])
 
   sb.size = xint(FSSIZE);
   sb.nblocks = xint(nblocks);
-  sb.bmapstart = xint(2);
-  sb.inodestart = xint(2+nbitmap);
+  sb.logstart =  xint(2);
+  sb.bmapstart = xint(3 + LOGSIZE);
+  sb.inodestart = xint(3 + nbitmap + LOGSIZE);
 
   printf("nmeta %d (boot, super, bitmap blocks %u) blocks %d total %d\n",
        nmeta, nbitmap, nblocks, FSSIZE);
@@ -126,11 +127,11 @@ main(int argc, char *argv[])
 
   // setup inode file data area
   rinode(inodefileino, &din);
-  din.data.startblkno = sb.inodestart;
+  din.data[0].startblkno = sb.inodestart;
   inodefileblkn = inum_count/IPB;
   if (inodefileblkn == 0 || (inum_count * sizeof(struct dinode) % BSIZE))
     inodefileblkn++;
-  din.data.nblocks = xint(inodefileblkn);
+  din.data[0].nblocks = xint(inodefileblkn);
   din.size = xint(inum_count * sizeof(struct dinode));
   winode(inodefileino, &din);
 
@@ -197,19 +198,19 @@ main(int argc, char *argv[])
     iappend(rootino, &de, sizeof(de));
 
     rinode(inum, &din);
-    din.data.startblkno = xint(freeblock);
+    din.data[0].startblkno = xint(freeblock);
 		winode(inum, &din);
 
     while((cc = read(fd, buf, sizeof(buf))) > 0)
       iappend(inum, buf, cc);
 
     rinode(inum, &din);
-    din.data.nblocks = xint(xint(din.size) / BSIZE + (xint(din.size) % BSIZE == 0 ? 0 : 1));
-    freeblock += xint(din.data.nblocks);
+    din.data[0].nblocks = xint(xint(din.size) / BSIZE + (xint(din.size) % BSIZE == 0 ? 0 : 1));
+    freeblock += xint(din.data[0].nblocks);
     winode(inum, &din);
 
 		printf("inum: %d name: %s size %d start: %d nblocks: %d\n",
-        inum, name, xint(din.size), xint(din.data.startblkno), xint(din.data.nblocks));
+        inum, name, xint(din.size), xint(din.data[0].startblkno), xint(din.data[0].nblocks));
     close(fd);
   }
 
@@ -220,7 +221,7 @@ main(int argc, char *argv[])
 
   rinode(inum, &din);
   printf("inum: %d size %d start: %d nblocks: %d\n",
-      inum,xint(din.size), xint(din.data.startblkno), xint(din.data.nblocks));
+      inum,xint(din.size), xint(din.data[0].startblkno), xint(din.data[0].nblocks));
 
   balloc(freeblock);
 
@@ -321,8 +322,8 @@ void
 iallocblocks(uint inum, int start, int numblks) {
   struct dinode din;
   rinode(inum, &din);
-  din.data.startblkno = xint(start);
-  din.data.nblocks = xint(numblks);
+  din.data[0].startblkno = xint(start);
+  din.data[0].nblocks = xint(numblks);
   winode(inum, &din);
 }
 
@@ -340,13 +341,24 @@ iappend(uint inum, void *xp, int n)
   while(n > 0){
     fbn = off / BSIZE;
     n1 = min(n, (fbn + 1) * BSIZE - off);
-    rsect(xint(din.data.startblkno) + fbn, buf);
+    rsect(xint(din.data[0].startblkno) + fbn, buf);
     bcopy(p, buf + off - (fbn * BSIZE), n1);
-    wsect(xint(din.data.startblkno) + fbn, buf);
+    wsect(xint(din.data[0].startblkno) + fbn, buf);
     n -= n1;
     off += n1;
     p += n1;
   }
   din.size = xint(off);
   winode(inum, &din);
+}
+
+void log_commit_tx() {
+  // we need some sort of lock first?
+
+  struct buf *commit_buf = bread(ROOTDEV, sb.logstart);
+  struct commit_block cb;
+  memmove(&cb, commit_buf->data, BSIZE);
+  brelse(commit_buf);
+
+
 }

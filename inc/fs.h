@@ -8,6 +8,7 @@
 #define INODEFILEINO 0 // inode file inum
 #define ROOTINO 1      // root i-number
 #define BSIZE 512      // block size
+#define MAXEXTENT 30   // max extents
 
 // Disk layout:
 // [ boot block | super block | free bit map |
@@ -18,6 +19,7 @@
 struct superblock {
   uint size;       // Size of file system image (blocks)
   uint nblocks;    // Number of data blocks
+  uint logstart;
   uint bmapstart;  // Block number of first free map block
   uint inodestart; // Block number of the start of inode file
 };
@@ -27,8 +29,8 @@ struct dinode {
   short type;         // File type
   short devid;        // Device number (T_DEV only)
   uint size;          // Size of file (bytes)
-  struct extent data; // Data blocks of file on disk
-  char pad[46];       // So disk inodes fit contiguosly in a block
+  struct extent data[MAXEXTENT]; // Data blocks of file on disk
+  char pad[8];       // So disk inodes fit contiguosly in a block
 };
 
 // offset of inode in inodefile
@@ -46,4 +48,11 @@ struct dinode {
 struct dirent {
   ushort inum;
   char name[DIRSIZ];
+};
+
+struct commit_block {
+  uint size;
+  uint commit_flag;       // indicates whether we are ready to commit or not
+  uint target_blocks[40];
+  char padding[BSIZE - sizeof(uint) * 42];
 };
