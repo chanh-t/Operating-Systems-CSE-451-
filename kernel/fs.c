@@ -314,9 +314,6 @@ void stati(struct inode *ip, struct stat *st) {
   st->size = ip->size;
 }
 
-int createi() {
-  
-}
 
 // threadsafe readi.
 int concurrent_readi(struct inode *ip, char *dst, uint off, uint n) {
@@ -632,4 +629,69 @@ int fileunlink(char* path) {
   unlocki(inode);
   inode->ref -= 1;
   return 0;
+}
+
+void log_apply() {
+  struct buf *commit_buf = bread(ROOTDEV, sb.logstart);
+  struct commit_block commit_block;
+  memmove(&commit_block, commit_buf->data, BSIZE);
+  brelse(commit_buf);
+
+  if (commit_block.commit_flag == 1) {
+    for (int i = 0; i < commit_block.size; i++) {
+      struct buf* src = bread(ROOTDEV, sb.logstart + 1 + i);
+      struct buf* dst = bread(ROOTDEV, commit_block.target[i]);
+      memmove(src->data, dst->data, BSIZE);
+      bwrite(dst);
+      brelse(dst);
+      brelse(src);
+    }
+
+    commit_buf = bread(ROOTDEV, sb.logstart);
+    memset(commit_buf->data, 0, BSIZE);
+    bwrite(commit_buf);
+    brelse(commit_buf);
+  }
+
+}
+
+void log_begin_tx() {
+  // need lock here
+  // zero out the log
+  for (int i = 0; i < LOGSIZE; i++) {
+    struct buf* log_block = bread(ROOTDEV, sb.logstart + (uint)i);
+    memset(log_block->data, 0, BSIZE);
+    bwrite(log_block);
+  }
+}
+
+void log_commit_tx() {
+  // we need some sort of lock first?
+  struct buf *commit_buf = bread(ROOTDEV, sb.logstart);
+  struct commit_block* commit = (struct commit_block*)&commit_buf->data;
+  commit->commit_flag = 1;
+  bwrite(commit_buf);
+  brelse(commit_buf);
+
+  log_apply();
+}
+
+// finished (needs to call log_recover())
+void log_write(struct buf* buf) {
+  // grab commit block
+  struct buf *commit_log = bread(ROOTDEV, sb.logstart);
+  struct commit_block* commit = (struct commit_block*)&commit_log->data;
+
+  // grab correct block
+  struct buf *data_log = bread(ROOTDEV, sb.logstart + commit->size + 1);
+  commit->target[commit->size] = data_log->blockno; // keeps track of where the blocks goes
+  commit->size++;
+  // write to correct block
+  memmove(&data_log->data, buf->data, BSIZE);
+  bwrite(data_log);
+  // update commit block
+  bwrite(commit_log);
+  // release all blocks
+  brelse(commit_log);
+  brelse(data_log);
 }
