@@ -352,15 +352,24 @@ iappend(uint inum, void *xp, int n)
   winode(inum, &din);
 }
 
-begin_tx() {
+log_begin_tx()() {
   // need lock here
-  struct buf *log = bread(ROOTDEV, sb.logstart);
-  struct commit cb = 0;
-  memset(log->data, 0, LOGSIZE * BSIZE); // zero out data, probably unecessary
-  memmove(&cb, commit_buf->data, BSIZE);
-  brelse(commit_buf);
+  // zero out the log
+  struct buf *log_block;
+  for (int i = 0; i < LOGSIZE; i++) {
+    log_block = bread(ROOTDEV, sb.logstart + i);
+    memset(log_block->data, 0, BSIZE);
+    bwrite(log_block);
+  }
+
+  // write a commit block to the start (unnecesary?)
+  log_block = bread(ROOTDEV, sb.logstart);
+  struct commit_block cb = 0;
+  memmove(&cb, commit_buf->data, sizeof(struct commit_block));
+  bwrite(commit_buf);
 }
-void commit_tx() {
+
+void log_commit_tx() {
   // we need some sort of lock first?
 
   struct buf *commit_buf = bread(ROOTDEV, sb.logstart);
@@ -370,6 +379,25 @@ void commit_tx() {
 }
 
 // log_write will write to the log region instead
-void log_write() {
+void log_write(struct buf* buf) {
+  // grab commit block
+  struct buf *commit_log = bread(ROOTDEV, sb.logstart);
+  struct commit_block commit = commit_log->data;
+
+  // grab correct block
+  struct buf *data_log = bread(ROOTDEV, sb.logstart + commit.size + 1);
+  commit.size++;
+  // write to correct block
+  memmove(&data_log->data, buf, BSIZE);
+  bwrite(data_log);
+  // update commit block
+  memmove(&commit->data, commit, sizeof(commit_block));
+  bwrite(commit_log);
+  // release all blocks
+  brelse(commit_log);
+  brelse(data_log);
+}
+
+log_apply() {
 
 }
