@@ -53,6 +53,6 @@ struct dirent {
 struct commit_block {
   uint size;
   uint commit_flag;       // indicates whether we are ready to commit or not
-  uint target_blocks[40];
-  char padding[BSIZE - sizeof(uint) * 42];
+  uint target[29]; // 30 represents the log size
+  char padding[BSIZE - sizeof(uint) * (31)];
 };
