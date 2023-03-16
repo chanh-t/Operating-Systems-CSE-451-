@@ -25,6 +25,61 @@
 // only one device
 struct superblock sb;
 
+// in memory version of commit_block
+struct commit_block in_mem_cb;
+
+struct sleeplock fslock;
+
+void log_apply() {
+  struct buf *commit_buf = bread(ROOTDEV, sb.logstart);
+  struct commit_block commit_block;
+  memmove(&commit_block, commit_buf->data, BSIZE);
+  brelse(commit_buf);
+
+  if (commit_block.commit_flag == 1) {
+    for (int i = 0; i < commit_block.size; i++) {
+      // write to block
+      struct buf* src = bread(ROOTDEV, sb.logstart + 1 + i);
+      struct buf* dst = bread(ROOTDEV, commit_block.target[i]);
+      memmove(dst->data, src->data, BSIZE);
+      bwrite(dst);
+      brelse(dst);
+      brelse(src);
+    }
+  }
+
+  commit_buf = bread(ROOTDEV, sb.logstart);
+  memset(commit_buf->data, 0, BSIZE);
+  bwrite(commit_buf);
+  brelse(commit_buf);
+  memset(&in_mem_cb, 0, sizeof(commit_block));
+
+}
+
+
+void log_commit_tx() {
+  acquiresleep(&fslock);
+  struct buf* commit_b = bread(ROOTDEV, sb.logstart);
+  in_mem_cb.commit_flag = 1;
+  memmove(commit_b->data, &in_mem_cb, sizeof(struct commit_block));
+
+  bwrite(commit_b);
+  brelse(commit_b);
+  releasesleep(&fslock);
+  log_apply();
+}
+
+// finished (needs to call log_recover())
+void log_write(struct buf* buf) {
+  acquiresleep(&fslock);
+  uint blocknom_orig = buf->blockno;
+  buf->blockno = sb.logstart + 1 + in_mem_cb.size;
+  bwrite(buf);
+  buf->blockno = blocknom_orig;
+  in_mem_cb.size++;
+  releasesleep(&fslock);
+}
+
 // Read the super block.
 void readsb(int dev, struct superblock *sb) {
   struct buf *bp;
@@ -49,7 +104,9 @@ static void bmark(struct buf *bp, uint start, uint end, bool used)
     }
   }
   bp->flags |= B_DIRTY; // mark our update
-  bwrite(bp);
+  log_write(bp);
+  log_commit_tx();
+  bp->flags |= B_DIRTY; // clear our update
 }
 
 // Blocks.
@@ -168,11 +225,12 @@ void iinit(int dev) {
     initsleeplock(&icache.inode[i].lock, "inode");
   }
   initsleeplock(&icache.inodefile.lock, "inodefile");
+  initsleeplock(&fslock, "log");
 
   readsb(dev, &sb);
   cprintf("sb: size %d nblocks %d bmap start %d inodestart %d\n", sb.size,
           sb.nblocks, sb.bmapstart, sb.inodestart);
-
+  log_apply();
   init_inodefile(dev);
 }
 
@@ -413,6 +471,7 @@ int writei(struct inode *ip, char *src, uint off, uint n) {
       actualblocks += ip->data[i].nblocks;
     }
   }
+  // add extents an allocate more blocks to account for bigger write
   if (off + n > ip->size) {
     if (blockstoa - actualblocks > 0) {
       ip->data[extentnum].startblkno = balloc(ip->dev, (blockstoa - actualblocks));
@@ -430,17 +489,19 @@ int writei(struct inode *ip, char *src, uint off, uint n) {
   for (int i = 0; i < MAXEXTENT; i++) {
     int curblock = ip->data[i].nblocks;
     if (nblocks-curblock < 0) {
-      extentnum = i; 
+      extentnum = i;
       break;
     } else {
       nblocks -= curblock;
     }
   }
+
   for (tot = 0; tot < n; tot += m, off += m, src += m) {
     bp = bread(ip->dev, ip->data[extentnum].startblkno + nblocks);
     m = min(n - tot, BSIZE - off % BSIZE);
     memmove(bp->data + off % BSIZE, src, m);
-    bwrite(bp);
+    log_write(bp);
+    //bwrite(bp);
     brelse(bp);
     nblocks += 1;
     if (nblocks >= ip->data[extentnum].nblocks) {
@@ -451,6 +512,8 @@ int writei(struct inode *ip, char *src, uint off, uint n) {
       }
     }
   }
+  log_commit_tx();
+
   // read-only fs, writing to inode is an error
   return n;
 }
@@ -626,72 +689,8 @@ int fileunlink(char* path) {
   // inode->size = 0;
   // inode->valid =0;
   // inode->type=0;
+
   unlocki(inode);
   inode->ref -= 1;
   return 0;
-}
-
-void log_apply() {
-  struct buf *commit_buf = bread(ROOTDEV, sb.logstart);
-  struct commit_block commit_block;
-  memmove(&commit_block, commit_buf->data, BSIZE);
-  brelse(commit_buf);
-
-  if (commit_block.commit_flag == 1) {
-    for (int i = 0; i < commit_block.size; i++) {
-      struct buf* src = bread(ROOTDEV, sb.logstart + 1 + i);
-      struct buf* dst = bread(ROOTDEV, commit_block.target[i]);
-      memmove(src->data, dst->data, BSIZE);
-      bwrite(dst);
-      brelse(dst);
-      brelse(src);
-    }
-
-    commit_buf = bread(ROOTDEV, sb.logstart);
-    memset(commit_buf->data, 0, BSIZE);
-    bwrite(commit_buf);
-    brelse(commit_buf);
-  }
-
-}
-
-void log_begin_tx() {
-  // need lock here
-  // zero out the log
-  for (int i = 0; i < LOGSIZE; i++) {
-    struct buf* log_block = bread(ROOTDEV, sb.logstart + (uint)i);
-    memset(log_block->data, 0, BSIZE);
-    bwrite(log_block);
-  }
-}
-
-void log_commit_tx() {
-  // we need some sort of lock first?
-  struct buf *commit_buf = bread(ROOTDEV, sb.logstart);
-  struct commit_block* commit = (struct commit_block*)&commit_buf->data;
-  commit->commit_flag = 1;
-  bwrite(commit_buf);
-  brelse(commit_buf);
-
-  log_apply();
-}
-
-// finished (needs to call log_recover())
-void log_write(struct buf* buf) {
-  // grab commit block
-  struct buf *commit_log = bread(ROOTDEV, sb.logstart);
-  struct commit_block* commit = (struct commit_block*)&commit_log->data;
-
-  // grab correct block
-  struct buf *data_log = bread(ROOTDEV, sb.logstart + commit->size + 1);
-  commit->target[commit->size] = data_log->blockno; // keeps track of where the blocks goes
-  commit->size++;
-  // write to correct block
-  memmove(&data_log->data, buf->data, BSIZE);
-  bwrite(data_log);
-  // update commit block
-  bwrite(commit_log);
-  // release all blocks
-  brelse(commit_log);
-  brelse(data_log);
 }

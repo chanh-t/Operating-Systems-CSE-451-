@@ -1,7 +1,7 @@
 #pragma once
 
 #include "extent.h"
-
+#include "param.h"
 // On-disk file system format.
 // Both the kernel and user programs use this header file.
 
@@ -53,6 +53,6 @@ struct dirent {
 struct commit_block {
   uint size;
   uint commit_flag;       // indicates whether we are ready to commit or not
-  uint target[29]; // 30 represents the log size
-  char padding[BSIZE - sizeof(uint) * (31)];
+  uint target[LOGSIZE]; // 30 represents the log size
+  char padding[BSIZE - sizeof(uint) * (LOGSIZE + 2)];
 };
